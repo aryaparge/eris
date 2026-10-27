@@ -23,7 +23,7 @@ const PRESETS = [ // Table 6.1
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const clsColor = c => cssv("--c-" + c) || "#888";
+const clsColor = c => c === "BENIGN" ? cssv("--ok") : cssv("--amber");
 const sevColor = s => cssv("--s-" + s) || "#888";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const pct = (x, d = 1) => x == null ? "–" : (100 * x).toFixed(d) + "%";
@@ -34,8 +34,8 @@ const fmtDur = s => s == null ? "–" : s < 60 ? `${Math.round(s)}s` : s < 3600 
 const ago = ts => fmtDur(Date.now() / 1000 - ts) + " ago";
 const hexA = (hex, a) => { const h = hex.replace("#", ""); const n = parseInt(h, 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
 
-const clsBadge = c => `<span class="cls" style="color:${clsColor(c)};border-color:${hexA(clsColor(c), .45)};background:${hexA(clsColor(c), .1)}">${esc(c)}</span>`;
-const sevBadge = s => `<span class="sev" style="color:${sevColor(s)};background:${hexA(sevColor(s), .13)}">${esc(s)}</span>`;
+const clsBadge = c => `<span class="cls ${c === "BENIGN" ? "benign" : ""}">${esc(c)}</span>`;
+const sevBadge = s => `<span class="sev s-${esc(s)}">${esc(s)}</span>`;
 const stBadge = s => `<span class="st st-${s}">${STATUS_LABEL[s] || esc(s)}</span>`;
 const bytesHTML = utr => { const t = utr.split(" "); return `<span class="bytes">${[3, 5, 7, 9, 11, 13, 15, 17].map(i => `<span>${t[i]}</span>`).join("")}</span>`; };
 const canId = utr => utr.split(" ")[1];
@@ -110,6 +110,7 @@ function setStream(st) {
 function setStats(st) {
   if (!st) return;
   S.stats = st;
+  if (S.page === "alerts") alertKpis();
   const a = $("#nb-alerts"), i = $("#nb-inc");
   a.textContent = st.alerts_open; a.classList.toggle("hidden", !st.alerts_open);
   i.textContent = st.incidents_open; i.classList.toggle("hidden", !st.incidents_open);
@@ -161,56 +162,68 @@ function onFrames(frames) {
 function control(cmd) { return api("/api/stream", { method: "POST", body: cmd }).then(setStream); }
 
 // ------------------------------------------------------------------ chart helpers
-Chart.defaults.color = "#8d99b6";
-Chart.defaults.borderColor = "rgba(34,48,82,.7)";
+const PAL = Object.fromEntries(["amber", "crit", "high", "med", "ok", "text", "text-2", "muted", "line", "row", "bg-2", "raised"].map(k => [k, cssv("--" + k)]));
+Chart.defaults.color = PAL["text-2"];
+Chart.defaults.borderColor = PAL.row;
 Chart.defaults.font.family = cssv("--sans") || "sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.plugins.legend.labels.boxWidth = 9;
+Chart.defaults.plugins.legend.labels.boxHeight = 9;
+Chart.defaults.plugins.tooltip.backgroundColor = PAL.raised;
+Chart.defaults.plugins.tooltip.borderColor = PAL.line;
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.titleColor = PAL.text;
+Chart.defaults.plugins.tooltip.bodyColor = PAL["text-2"];
+Chart.defaults.plugins.tooltip.cornerRadius = 2;
+Chart.defaults.animation = false;
 function chart(id, cfg) { const el = document.getElementById(id); if (!el) return; S.charts[id] = new Chart(el, cfg); return S.charts[id]; }
 
 // ================================================================== OVERVIEW
 function overview() {
   $("#view").innerHTML = `
   <div class="kpis">
-    <div class="kpi accent"><div class="l">Frames analysed</div><div class="v" id="k-frames">0</div><div class="s" id="k-fps">– fps</div></div>
-    <div class="kpi"><div class="l">Open alerts</div><div class="v" id="k-open">0</div><div class="s" id="k-total">0 total</div></div>
-    <div class="kpi"><div class="l">Open incidents</div><div class="v" id="k-inc">0</div><div class="s" id="k-inc-t">0 total</div></div>
-    <div class="kpi bad"><div class="l">Critical incidents</div><div class="v" id="k-crit">0</div><div class="s">open, safety-relevant</div></div>
-    <div class="kpi"><div class="l">Mean time to acknowledge</div><div class="v" id="k-mtta">–</div><div class="s">analyst response</div></div>
+    <div class="kpi accent"><div class="l">Frames analysed</div><div class="v" id="k-frames">0</div><div class="s" id="k-fps">– frames/s</div></div>
+    <div class="kpi"><div class="l">Open alerts</div><div class="v" id="k-open">0</div><div class="s" id="k-total">0 raised in total</div></div>
+    <div class="kpi"><div class="l">Open incidents</div><div class="v" id="k-inc">0</div><div class="s" id="k-inc-t">0 in total</div></div>
+    <div class="kpi bad" id="k-crit-box"><div class="l">Critical incidents</div><div class="v" id="k-crit">0</div><div class="s">open, safety-relevant</div></div>
+    <div class="kpi"><div class="l">Mean time to acknowledge</div><div class="v" id="k-mtta">–</div><div class="s">first alert → acknowledgement</div></div>
   </div>
   <div class="grid g21 mb">
-    <div class="card"><h3>CAN traffic by predicted class <span class="grow"></span><span class="small dim">frames / second, last 60 s</span></h3>
+    <div class="card"><h3>CAN traffic <span class="grow"></span><span class="legend"><span><i style="background:${PAL.muted}"></i>Benign</span><span><i style="background:${PAL.amber}"></i>Flagged as attack</span></span><span class="small">frames/s · last 60 s</span></h3>
       <div class="chart-box"><canvas id="ch-traffic"></canvas></div></div>
-    <div class="card"><h3>Stream control</h3>
+    <div class="card"><h3>Stream control <span class="grow"></span><span class="small" id="st-state"></span></h3>
       <div class="btns mb"><button class="btn primary" id="b-run"></button>
-        <label class="toggle"><input type="checkbox" id="b-auto"> scheduled attacks</label></div>
-      <div class="mb"><div class="small muted">Replay rate: <b id="rate-v"></b> frames/s</div><input type="range" min="2" max="50" id="b-rate" style="width:100%"></div>
-      <div class="small muted" style="margin-bottom:8px">Inject an attack burst (held-out test frames)</div>
-      <div class="btns" id="b-inject">${ATTACKS.map(c => `<button class="btn sm" data-c="${c}" style="border-color:${hexA(clsColor(c), .6)}">${PRETTY[c]}</button>`).join("")}</div>
-      <div class="small" id="burst" style="margin-top:12px;min-height:20px"></div>
-      <div class="callout blue small" style="margin-top:10px">Traffic is replayed from the <b>held-out test patterns</b> of CICIoV2024, so every frame is unseen by the model. Each frame passes through classification → explanation → risk assessment.</div>
+        <label class="toggle" style="margin-left:6px"><input type="checkbox" id="b-auto"> Scheduled attacks</label></div>
+      <div class="mb"><div class="sublabel" style="display:flex">Replay rate<span class="grow" style="flex:1"></span><span class="mono" style="color:var(--text);letter-spacing:0;text-transform:none" id="rate-v"></span></div>
+        <input type="range" min="2" max="50" id="b-rate" style="width:100%"></div>
+      <div class="sublabel">Inject attack burst</div>
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:6px" id="b-inject">${ATTACKS.map(c => `<button class="btn sm" data-c="${c}">${PRETTY[c]}</button>`).join("")}</div>
+      <div class="small" id="burst" style="margin-top:10px;min-height:20px"></div>
+      <div class="small dim" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">Source: held-out CICIoV2024 test patterns, unseen during training. Each frame is classified, explained and risk-scored.</div>
     </div>
   </div>
   <div class="grid g21 mb">
-    <div class="card"><h3>Live CAN bus <span class="grow"></span><a href="#/alerts" class="small">open alert queue →</a></h3>
-      <div class="ticker"><div class="row head"><span>time</span><span>ID</span><span>payload D0–D7</span><span>prediction</span><span class="right">conf.</span></div><div id="ticker"></div></div></div>
-    <div class="card"><h3>Active incidents <span class="grow"></span><a href="#/incidents" class="small">all →</a></h3><div id="ov-inc"><div class="empty">No incidents yet</div></div></div>
+    <div class="card"><h3>Live CAN bus <span class="grow"></span><a href="#/alerts" class="small" style="color:var(--amber)">Open alert queue</a></h3>
+      <div class="ticker"><div class="row head"><span>Time</span><span>ID</span><span>Payload D0–D7</span><span>Prediction</span><span class="right">Conf.</span></div><div id="ticker"></div></div></div>
+    <div class="card"><h3>Active incidents <span class="grow"></span><a href="#/incidents" class="small" style="color:var(--amber)">All incidents</a></h3><div class="inc-list" id="ov-inc"><div class="empty">No open incidents</div></div></div>
   </div>
-  <div class="grid g2">
-    <div class="card"><h3>Open alerts by severity</h3><div class="chart-box short"><canvas id="ch-sev"></canvas></div></div>
-    <div class="card"><h3>Alerts by attack class</h3><div class="chart-box short"><canvas id="ch-cls"></canvas></div></div>
-  </div>`;
+  <div class="card"><h3>Detection summary <span class="grow"></span><span class="small">from the alert database</span></h3>
+    <div class="grid g2" style="gap:24px"><div><div class="sublabel">Open alerts by severity</div><div id="bd-sev"></div></div>
+    <div><div class="sublabel">All alerts by attack class</div><div id="bd-cls"></div></div></div></div>`;
   $("#b-run").onclick = () => control({ cmd: S.stream?.running ? "pause" : "start" });
   $("#b-auto").onchange = e => control({ cmd: "auto", value: e.target.checked });
-  $("#b-rate").oninput = e => { $("#rate-v").textContent = e.target.value; };
+  $("#b-rate").oninput = e => { $("#rate-v").textContent = e.target.value + " frames/s"; };
   $("#b-rate").onchange = e => control({ cmd: "rate", value: +e.target.value });
   $$("#b-inject button").forEach(b => b.onclick = () => control({ cmd: "inject", cls: b.dataset.c, n: 60 }));
-  chart("ch-traffic", { type: "bar", data: { labels: [], datasets: CLASSES.map(c => ({ label: c, data: [], backgroundColor: clsColor(c), stack: "s", borderWidth: 0 })) },
-    options: { animation: false, maintainAspectRatio: false, scales: { x: { stacked: true, ticks: { maxTicksLimit: 7 } }, y: { stacked: true, beginAtZero: true } }, plugins: { legend: { position: "bottom", labels: { boxWidth: 10 } } } } });
-  chart("ch-sev", { type: "doughnut", data: { labels: SEVS, datasets: [{ data: [0, 0, 0, 0], backgroundColor: SEVS.map(sevColor), borderWidth: 0 }] },
-    options: { maintainAspectRatio: false, cutout: "65%", plugins: { legend: { position: "right" } } } });
-  chart("ch-cls", { type: "bar", data: { labels: ATTACKS, datasets: [{ data: [0, 0, 0, 0, 0], backgroundColor: ATTACKS.map(clsColor) }] },
-    options: { maintainAspectRatio: false, indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } } });
+  chart("ch-traffic", { type: "bar", data: { labels: [], datasets: [
+      { label: "Benign", data: [], backgroundColor: PAL.muted, stack: "s", borderWidth: 0, barPercentage: .85, categoryPercentage: 1 },
+      { label: "Flagged", data: [], backgroundColor: PAL.amber, stack: "s", borderWidth: 0, barPercentage: .85, categoryPercentage: 1 }] },
+    options: { maintainAspectRatio: false, scales: { x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 7, maxRotation: 0 } }, y: { stacked: true, beginAtZero: true, ticks: { maxTicksLimit: 5 } } }, plugins: { legend: { display: false } } } });
   updateOverview({ stream: S.stream, stats: S.stats });
   refreshOvIncidents();
+}
+function bdRows(items, max, color) {
+  return items.map(([label, n, c]) => `<div class="bd ${n ? "" : "zero"}"><span>${label}</span><div class="track"><div style="width:${max ? 100 * n / max : 0}%;background:${c || color}"></div></div><span class="n">${n.toLocaleString()}</span></div>`).join("");
 }
 let lastOvInc = 0;
 function updateOverview(m) {
@@ -218,28 +231,33 @@ function updateOverview(m) {
   if (st) {
     $("#k-frames").textContent = st.processed.toLocaleString();
     $("#k-fps").textContent = `${st.fps} frames/s`;
-    $("#b-run").textContent = st.running ? "❚❚ Pause stream" : "▶ Start stream";
+    $("#b-run").textContent = st.running ? "Pause stream" : "Start stream";
+    $("#st-state").innerHTML = st.running ? `<span class="st st-resolved">Running</span>` : `<span class="st st-false_positive">Paused</span>`;
     $("#b-auto").checked = st.auto;
-    if (document.activeElement !== $("#b-rate")) { $("#b-rate").value = st.rate; $("#rate-v").textContent = st.rate; }
-    $("#burst").innerHTML = st.burst ? `<span class="spin"></span> Injecting ${clsBadge(st.burst[0])} burst · ${st.burst[1]} frames left` : `<span class="dim">No burst active</span>`;
+    if (document.activeElement !== $("#b-rate")) { $("#b-rate").value = st.rate; $("#rate-v").textContent = st.rate + " frames/s"; }
+    $("#burst").innerHTML = st.burst ? `<span class="spin"></span>Injecting ${clsBadge(st.burst[0])} · <span class="mono">${st.burst[1]}</span> frames left` : `<span class="dim">No burst active</span>`;
   }
   if (s) {
     $("#k-open").textContent = s.alerts_open.toLocaleString();
-    $("#k-total").textContent = `${s.alerts_total.toLocaleString()} total`;
-    $("#k-inc").textContent = s.incidents_open; $("#k-inc-t").textContent = `${s.incidents_total} total`;
-    $("#k-crit").textContent = s.critical_open; $("#k-mtta").textContent = fmtDur(s.mtta_s);
-    const cs = S.charts["ch-sev"], cc = S.charts["ch-cls"];
-    if (cs) { cs.data.datasets[0].data = SEVS.map(x => s.open_by_severity[x] || 0); cs.update("none"); }
-    if (cc) { cc.data.datasets[0].data = ATTACKS.map(x => s.by_label[x] || 0); cc.update("none"); }
+    $("#k-total").textContent = `${s.alerts_total.toLocaleString()} raised in total`;
+    $("#k-inc").textContent = s.incidents_open; $("#k-inc-t").textContent = `${s.incidents_total} in total`;
+    $("#k-crit").textContent = s.critical_open; $("#k-crit-box").classList.toggle("zero", !s.critical_open);
+    $("#k-mtta").textContent = fmtDur(s.mtta_s);
+    const sevN = SEVS.map(x => [x, s.open_by_severity[x] || 0]);
+    $("#bd-sev").innerHTML = bdRows(sevN.map(([x, n]) => [sevBadge(x), n, sevColor(x)]), Math.max(...sevN.map(r => r[1])));
+    const clsN = ATTACKS.map(x => [x, s.by_label[x] || 0]);
+    $("#bd-cls").innerHTML = bdRows(clsN.map(([x, n]) => [clsBadge(x), n]), Math.max(...clsN.map(r => r[1])), PAL.amber);
   }
   $("#ticker").innerHTML = S.frames.slice(0, 14).map(f => `<div class="row ${f.label !== "BENIGN" ? "attack" : ""}">
-    <span class="dim">${fmtTime(f.ts)}</span><span>${f.can_id}</span>${bytesHTML(f.utr)}<span>${clsBadge(f.label)}</span><span class="right">${pct(f.confidence)}</span></div>`).join("");
+    <span class="dim">${fmtTime(f.ts)}</span><span>${f.can_id}</span>${bytesHTML(f.utr)}<span>${clsBadge(f.label)}</span><span class="right">${pct(f.confidence)}</span></div>`).join("")
+    || `<div class="empty">Waiting for traffic…</div>`;
   const ct = S.charts["ch-traffic"];
   if (ct) {
     const now = Math.floor(Date.now() / 1000), secs = [...Array(60).keys()].map(i => now - 59 + i);
     const by = Object.fromEntries(S.traffic.map(b => [b.t, b.c]));
     ct.data.labels = secs.map(t => t === now ? "now" : `-${now - t}s`);
-    ct.data.datasets.forEach(ds => ds.data = secs.map(t => (by[t] || {})[ds.label] || 0));
+    ct.data.datasets[0].data = secs.map(t => (by[t] || {}).BENIGN || 0);
+    ct.data.datasets[1].data = secs.map(t => Object.entries(by[t] || {}).reduce((a, [k, v]) => a + (k === "BENIGN" ? 0 : v), 0));
     ct.update("none");
   }
   if (m.frames?.some(f => f.alert_id) && Date.now() - lastOvInc > 2000) refreshOvIncidents();
@@ -248,43 +266,44 @@ async function refreshOvIncidents() {
   lastOvInc = Date.now();
   const r = await api("/api/incidents?status=new,acknowledged,investigating");
   const el = $("#ov-inc"); if (!el) return;
-  el.innerHTML = r.rows.slice(0, 6).map(incItem).join("") || `<div class="empty">No open incidents</div>`;
+  el.innerHTML = r.rows.slice(0, 7).map(incItem).join("") || `<div class="empty">No open incidents</div>`;
   $$(".inc-item", el).forEach(x => x.onclick = () => openIncident(+x.dataset.id));
 }
 const incItem = i => `<div class="inc-item" data-id="${i.id}"><div class="bar" style="background:${sevColor(i.severity)}"></div>
-  <div><div class="t">${esc(i.title)}</div><div class="small muted">${i.count} alerts · first ${fmtTime(i.first_ts)} · last ${ago(i.last_ts)}</div></div>
-  <div class="right">${sevBadge(i.severity)}<div style="margin-top:4px">${stBadge(i.status)}</div></div></div>`;
+  <div style="min-width:0"><div class="t">${esc(i.title)}</div><div class="m">INC-${String(i.id).padStart(4, "0")} · ${i.count} alerts · last ${ago(i.last_ts)}</div></div>
+  <div class="r">${sevBadge(i.severity)}${stBadge(i.status)}</div></div>`;
 
 // ================================================================== ALERTS
 function alerts() {
   const q = S.aq;
   $("#view").innerHTML = `
-  <div class="card mb">
-    <div class="btns" style="margin-bottom:10px">
-      <input id="a-q" placeholder="Search CAN ID, class, payload, assignee…" style="min-width:280px" value="${esc(q.q)}">
-      <span class="small muted" style="margin-left:6px">Status</span>${STATUSES.map(s => `<span class="chip ${q.status.includes(s) ? "on" : ""}" data-f="status" data-v="${s}">${STATUS_LABEL[s]}</span>`).join("")}
-    </div>
-    <div class="btns">
-      <span class="small muted">Severity</span>${SEVS.map(s => `<span class="chip ${q.severity.includes(s) ? "on" : ""}" data-f="severity" data-v="${s}" style="color:${sevColor(s)}">${s}</span>`).join("")}
-      <span class="small muted" style="margin-left:8px">Class</span>${ATTACKS.map(c => `<span class="chip ${q.label.includes(c) ? "on" : ""}" data-f="label" data-v="${c}">${c}</span>`).join("")}
-      <span class="grow" style="flex:1"></span><button class="btn sm ghost" id="a-clear">Reset filters</button>
-    </div>
-  </div>
+  <div class="kpis" id="a-kpis"></div>
   <div class="card">
-    <div class="btns" style="margin-bottom:10px">
-      <b id="a-count" class="small"></b><span class="small muted" id="a-selc"></span><span style="flex:1"></span>
+    <div class="toolbar">
+      <input id="a-q" placeholder="Search CAN ID, class, payload, assignee" style="width:280px" value="${esc(q.q)}">
+      <span class="vsep"></span><span class="flabel">Status</span>${STATUSES.map(s => `<span class="chip ${q.status.includes(s) ? "on" : ""}" data-f="status" data-v="${s}">${STATUS_LABEL[s]}</span>`).join("")}
+      <span class="grow"></span><button class="btn sm ghost" id="a-clear">Reset filters</button>
+    </div>
+    <div class="toolbar">
+      <span class="flabel">Severity</span>${SEVS.map(s => `<span class="chip ${q.severity.includes(s) ? "on" : ""}" data-f="severity" data-v="${s}">${sevBadge(s)}</span>`).join("")}
+      <span class="vsep"></span><span class="flabel">Class</span>${ATTACKS.map(c => `<span class="chip mono ${q.label.includes(c) ? "on" : ""}" data-f="label" data-v="${c}">${c}</span>`).join("")}
+    </div>
+    <div class="toolbar">
+      <span class="mono small" id="a-count"></span><span class="small" style="color:var(--amber)" id="a-selc"></span><span class="grow"></span>
+      <span class="flabel">Selected</span>
       <button class="btn sm" data-bulk="acknowledged">Acknowledge</button>
       <button class="btn sm" data-bulk="investigating">Investigate</button>
       <button class="btn sm ok" data-bulk="resolved">Resolve</button>
       <button class="btn sm" data-bulk="false_positive">False positive</button>
-      <input id="a-assign" placeholder="Assign to…" style="width:130px;padding:4px 8px"><button class="btn sm" id="a-assign-b">Assign</button>
+      <span class="vsep"></span>
+      <input id="a-assign" placeholder="Assignee" style="width:120px;height:24px"><button class="btn sm" id="a-assign-b">Assign</button>
     </div>
-    <div class="scroll"><table class="tbl" id="a-tbl"><thead><tr>
-      <th style="width:28px"><input type="checkbox" id="a-all"></th>
-      <th class="sortable" data-s="id">#</th><th class="sortable" data-s="ts">Time</th><th class="sortable" data-s="rank">Severity</th>
-      <th class="sortable" data-s="label">Detection</th><th class="sortable" data-s="can_id">CAN ID</th><th>Payload</th>
+    <div class="scroll flush" style="margin-top:0"><table class="tbl" id="a-tbl"><thead><tr>
+      <th style="width:28px"><input type="checkbox" id="a-all" aria-label="Select all"></th>
+      <th class="sortable" data-s="id">Alert</th><th class="sortable" data-s="ts">Time</th><th class="sortable" data-s="rank">Severity</th>
+      <th class="sortable" data-s="label">Detection</th><th class="sortable" data-s="can_id">CAN ID</th><th>Payload D0–D7</th>
       <th class="sortable num" data-s="confidence">Conf.</th><th class="sortable" data-s="status">Status</th><th>Assignee</th><th>Incident</th></tr></thead>
-      <tbody id="a-body"><tr><td colspan="11" class="loading"><span class="spin"></span></td></tr></tbody></table></div>
+      <tbody id="a-body"><tr><td colspan="11" class="loading"><span class="spin"></span>Loading alerts</td></tr></tbody></table></div>
     <div class="pager"><span id="a-range"></span><button class="btn sm" id="a-prev">‹ Prev</button><button class="btn sm" id="a-next">Next ›</button></div>
   </div>`;
   let t;
@@ -314,6 +333,15 @@ async function bulk(body) {
   toast("Alerts updated", `${S.selected.size} alert(s) ${body.status ? "→ " + STATUS_LABEL[body.status] : "assigned to " + (body.assignee || "nobody")}`, "Low");
   S.selected.clear(); $("#a-all").checked = false; $("#a-selc").textContent = ""; loadAlerts();
 }
+const alrId = n => "ALR-" + String(n).padStart(5, "0");
+const incId = n => "INC-" + String(n).padStart(4, "0");
+function alertKpis() {
+  const el = $("#a-kpis"), s = S.stats; if (!el || !s) return;
+  const b = s.by_status || {};
+  el.innerHTML = [["Open", s.alerts_open, "accent"], ["New", b.new || 0, ""], ["Acknowledged", b.acknowledged || 0, ""],
+    ["Investigating", b.investigating || 0, ""], ["Resolved", b.resolved || 0, ""], ["False positive", b.false_positive || 0, ""]]
+    .map(([l, v, c]) => `<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v.toLocaleString()}</div></div>`).join("");
+}
 async function loadAlerts() {
   S.lastAlertRefresh = Date.now();
   const q = S.aq;
@@ -323,13 +351,14 @@ async function loadAlerts() {
   $("#a-count").textContent = `${r.total.toLocaleString()} alerts`;
   $("#a-range").textContent = r.total ? `${q.offset + 1}–${Math.min(q.offset + q.limit, r.total)} of ${r.total}` : "";
   $("#a-prev").disabled = q.offset === 0; $("#a-next").disabled = q.offset + q.limit >= r.total;
-  $$("th[data-s]").forEach(th => th.textContent = th.textContent.replace(/ [▲▼]$/, "") + (th.dataset.s === q.sort ? (q.desc ? " ▼" : " ▲") : ""));
-  body.innerHTML = r.rows.map(a => `<tr class="click ${S.selected.has(a.id) ? "sel" : ""}" data-id="${a.id}">
-    <td><input type="checkbox" data-id="${a.id}" ${S.selected.has(a.id) ? "checked" : ""}></td>
-    <td class="dim mono">${a.id}</td><td class="mono nowrap">${fmtTime(a.ts)}</td><td>${sevBadge(a.severity)}</td>
+  $$("th[data-s]").forEach(th => { th.textContent = th.textContent.replace(/ [▲▼]$/, "") + (th.dataset.s === q.sort ? (q.desc ? " ▼" : " ▲") : ""); th.classList.toggle("sorted", th.dataset.s === q.sort); });
+  alertKpis();
+  body.innerHTML = r.rows.map(a => `<tr class="click ${S.selected.has(a.id) ? "sel" : ""} ${a.rank === 4 ? "crit" : ""}" data-id="${a.id}">
+    <td><input type="checkbox" data-id="${a.id}" ${S.selected.has(a.id) ? "checked" : ""} aria-label="Select alert ${a.id}"></td>
+    <td class="mono">${alrId(a.id)}</td><td class="mono nowrap dim">${fmtTime(a.ts)}</td><td>${sevBadge(a.severity)}</td>
     <td>${clsBadge(a.label)}</td><td class="mono">0x${a.can_id}</td><td class="mono small">${bytesHTML(a.utr)}</td>
-    <td class="num">${pct(a.confidence)}</td><td>${stBadge(a.status)}</td><td>${esc(a.assignee || "—")}</td>
-    <td><a href="#" data-inc="${a.incident_id}">#${a.incident_id}</a></td></tr>`).join("")
+    <td class="num">${pct(a.confidence)}</td><td>${stBadge(a.status)}</td><td class="${a.assignee ? "" : "dim"}">${esc(a.assignee || "unassigned")}</td>
+    <td><a href="#" class="mono small" data-inc="${a.incident_id}">${incId(a.incident_id)}</a></td></tr>`).join("")
     || `<tr><td colspan="11"><div class="empty">No alerts match the filters. Inject an attack from the Live Monitor.</div></td></tr>`;
   $$("#a-body tr.click").forEach(tr => tr.onclick = e => {
     if (e.target.matches("input")) return toggleSel(+e.target.dataset.id, e.target.checked);
@@ -353,27 +382,28 @@ function closeDrawer() {
 }
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $(".drawer")) closeDrawer(); });
 
-function workflowHTML(status, assignee) {
-  return `<div class="btns">${STATUSES.filter(s => s !== "new").map(s => `<button class="btn sm ${s === "resolved" ? "ok" : ""} ${s === status ? "primary" : ""}" data-st="${s}">${STATUS_LABEL[s]}</button>`).join("")}
-    <span style="flex:1"></span><input id="d-assign" placeholder="Assignee" value="${esc(assignee || "")}" style="width:130px;padding:4px 8px"><button class="btn sm" id="d-assign-b">Assign</button></div>`;
+function workflowHTML(status, assignee, note = "") {
+  return `<div class="card"><h3>Triage <span class="grow"></span><span class="small">current</span>${stBadge(status)}</h3><div class="btns">${STATUSES.filter(s => s !== "new").map(s => `<button class="btn sm ${s === "resolved" ? "ok" : ""} ${s === status ? "primary" : ""}" data-st="${s}">${STATUS_LABEL[s]}</button>`).join("")}
+    <span style="flex:1"></span><input id="d-assign" placeholder="Assignee" value="${esc(assignee || "")}" style="width:130px;height:24px"><button class="btn sm" id="d-assign-b">Assign</button></div>${note ? `<div class="small dim" style="margin-top:8px">${note}</div>` : ""}</div>`;
 }
 function notesHTML(events) {
-  return `<div class="card"><h3>Analyst notes &amp; activity</h3>
-    <div class="btns mb"><input id="d-note" placeholder="Add a note for the investigation…" style="flex:1"><button class="btn sm primary" id="d-note-b">Add note</button></div>
-    <ul class="timeline">${events.slice().reverse().map(e => `<li class="k-${e.kind}"><span class="dim mono small">${fmtTime(e.ts)}</span> · <b>${esc(e.actor)}</b> — ${esc(e.detail)}</li>`).join("") || `<li class="dim">No activity yet</li>`}</ul></div>`;
+  return `<div class="card"><h3>Notes &amp; audit trail <span class="grow"></span><span class="small">${events.length} events</span></h3>
+    <div class="btns mb"><input id="d-note" placeholder="Add a note for the investigation" style="flex:1"><button class="btn sm primary" id="d-note-b">Add note</button></div>
+    <ul class="timeline">${events.slice().reverse().map(e => `<li class="k-${e.kind}"><span class="dim mono small">${fmtTime(e.ts)}</span>&nbsp; <span class="mono small">${esc(e.actor)}</span>&nbsp; ${esc(e.detail)}</li>`).join("") || `<li class="dim">No activity yet</li>`}</ul></div>`;
 }
 
 async function openAlert(id) {
-  drawer(`<div class="dh"><div><h2>Alert #${id}</h2></div><span style="flex:1"></span><button class="x">×</button></div><div class="db"><div class="loading"><span class="spin"></span> Computing explanation…</div></div>`);
+  drawer(`<div class="dh"><div><h2 class="mono">${alrId(id)}</h2></div><span style="flex:1"></span><button class="x">×</button></div><div class="db"><div class="loading"><span class="spin"></span> Computing explanation…</div></div>`);
   const a = await api(`/api/alerts/${id}`);
   const html = `<div class="dh"><div>
-      <div class="btns" style="margin-bottom:6px">${sevBadge(a.severity)}${clsBadge(a.label)}${stBadge(a.status)}<span class="small dim">Alert #${a.id} · ${new Date(a.ts * 1000).toLocaleString()}</span></div>
+      <div class="btns" style="margin-bottom:6px;gap:10px">${sevBadge(a.severity)}${clsBadge(a.label)}<span class="mono small dim">${alrId(a.id)} · ${new Date(a.ts * 1000).toLocaleString()}</span></div>
       <h2>${esc(PRETTY[a.label])} on CAN ID 0x${a.can_id}</h2>
-      <div class="small muted" style="margin-top:4px">Incident <a href="#" id="d-inc">#${a.incident_id}</a> · ${a.incident?.count ?? "?"} related alerts · confidence ${pct(a.confidence)}
-        ${a.true_label ? ` · replay ground truth ${clsBadge(a.true_label)}` : ""}</div></div>
+      <div class="small muted" style="margin-top:4px">Incident <a href="#" id="d-inc" class="mono">${incId(a.incident_id)}</a> · ${a.incident?.count ?? "?"} related alerts · confidence <span class="mono">${pct(a.confidence)}</span>
+        ${a.true_label ? ` · replay ground truth ${clsBadge(a.true_label)}` : ""}</div>
+      <div class="mono small dim" style="margin-top:4px">${esc(a.utr)}</div></div>
       <span style="flex:1"></span><button class="x">×</button></div>
     <div class="db">
-      <div class="card">${workflowHTML(a.status, a.assignee)}</div>
+      ${workflowHTML(a.status, a.assignee)}
       ${a.explanation ? explanationHTML(a.explanation) : `<div class="card"><div class="empty">Explanation unavailable: the model is not loaded (recorded mode).</div></div>`}
       ${riskHTML(a.risk)}
       ${notesHTML(a.events)}
@@ -412,11 +442,11 @@ document.addEventListener("click", e => {
 });
 
 // ------------------------------------------------------------------ explanation + risk components
-const heatBg = (v, rgb = "255,181,71") => `background:rgba(${rgb},${Math.min(.9, .06 + v * 1.4)});color:${v > .35 ? "#111" : "#e7ecf6"}`;
+const heatBg = (v, rgb = "214,163,67") => `background:rgba(${rgb},${Math.min(.9, .05 + v * 1.4)});color:${v > .35 ? "#1A1810" : PAL.text}`;
 function frameHTML(values, shares, changed = []) {
   const top = shares ? [...shares.keys()].sort((a, b) => shares[b] - shares[a]).slice(0, 3) : [];
   return `<div class="frame">${FIELDS.map((f, i) => `<div class="f ${top.includes(i) ? "hot" : ""} ${changed.includes(f) ? "changed" : ""}"
-    style="${shares ? `background:rgba(255,181,71,${(shares[i] * 0.9).toFixed(3)})` : ""}">
+    style="${shares ? `background:rgba(214,163,67,${(shares[i] * 0.8).toFixed(3)});${shares[i] > .45 ? "color:#1A1810" : ""}` : ""}">
     <div class="n">${f === "CAN_ID" ? "CAN ID" : f}</div><div class="v">${esc(values[i])}</div>${shares ? `<div class="p">${pct(shares[i], 0)}</div>` : ""}</div>`).join("")}</div>`;
 }
 function explanationHTML(ex, pid = "d-probs") {
@@ -429,7 +459,7 @@ function explanationHTML(ex, pid = "d-probs") {
     `<div class="small muted">No small change towards known benign traffic (${esc(cf.scope)}) makes ERIS call this frame benign: a strong attack signature.</div>` :
     `<div class="small muted mb">${esc(cf.method)} · searched ${esc(cf.scope)}</div>
      <div class="small" style="margin-bottom:4px">Observed frame → ${clsBadge(ex.label)}</div>${frameHTML(ex.values, null)}
-     <div style="text-align:center;color:var(--accent2);margin:6px 0">▼ change ${cf.changes.map(c => `<b class="mono">${c.field}</b> ${c.from}→${c.to}`).join(", ")}</div>
+     <div class="small" style="text-align:center;color:var(--amber);margin:6px 0">▼ change ${cf.changes.map(c => `<b class="mono">${c.field}</b> ${c.from}→${c.to}`).join(", ")}</div>
      <div class="small" style="margin-bottom:4px">Counterfactual frame → ${clsBadge("BENIGN")} ${pct(cf.new_confidence)}</div>${frameHTML(cf.frame.split(" ").filter((_, i) => i % 2), null, cf.changes.map(c => c.field))}`;
   return `<div class="card"><h3>Explanation <span class="grow"></span><span class="small dim">consistency ρ = ${fix(ex.consistency, 2)}</span></h3>
     <div class="mb">${frameHTML(ex.values, ex.combined)}</div>
@@ -456,12 +486,13 @@ function groupHTML(ex) {
   if (!g || ex.label === "BENIGN") return "";
   const row = (name, r) => `<div class="stat-line"><span class="muted">${name}</span><span>${clsBadge(r.label)} ${pct(r.confidence, 1)}
     ${r.label === ex.label ? `<span class="test-pass">· unchanged</span>` : `<span class="test-fail">· changes</span>`}</span></div>`;
-  return `<div class="card"><h3>Identifier vs payload: which part decides? <span class="grow"></span><span class="tag" style="color:var(--accent2);background:rgba(79,140,255,.14)">${DRIVER[g.driver]}</span></h3>
+  return `<div class="card"><h3>Identifier vs payload: which part decides? <span class="grow"></span><span class="tag amber">${DRIVER[g.driver]}</span></h3>
     <div class="desc">The whole CAN ID, then the whole payload, is hidden and the frame re-classified. Robust where single bytes are redundant.</div>
     ${row("CAN ID hidden (payload only)", g.id_hidden)}${row("Payload hidden (CAN ID only)", g.payload_hidden)}</div>`;
 }
 function drawProbChart(id, probs) {
-  chart(id, { type: "bar", data: { labels: CLASSES, datasets: [{ data: CLASSES.map(c => probs[c]), backgroundColor: CLASSES.map(clsColor) }] },
+  const top = Math.max(...CLASSES.map(c => probs[c]));
+  chart(id, { type: "bar", data: { labels: CLASSES, datasets: [{ data: CLASSES.map(c => probs[c]), backgroundColor: CLASSES.map(c => probs[c] === top ? PAL.amber : PAL.muted), barPercentage: .6 }] },
     options: { maintainAspectRatio: false, indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => pct(c.raw, 3) } } },
       scales: { x: { min: 0, max: 1, ticks: { callback: v => (v * 100) + "%" } } } } });
 }
@@ -470,21 +501,29 @@ function riskHTML(r) {
   const c = sevColor(r.level);
   return `<div class="card"><h3>Risk assessment <span class="tag">preview</span><span class="grow"></span><span class="small dim">ISO/SAE 21434-style impact × feasibility</span></h3>
     <div class="risk-head mb"><div class="risk-score" style="border-color:${c};color:${c}">${r.score}</div>
-      <div><div>${sevBadge(r.level)} ${r.sustained ? `<span class="tag" style="color:var(--bad);background:rgba(255,84,104,.14)">sustained</span>` : ""}</div>
-      <div style="font-size:15px;font-weight:600;margin-top:4px">${esc(r.function)}</div>
+      <div><div>${sevBadge(r.level)} ${r.sustained ? `<span class="tag crit">sustained</span>` : ""}</div>
+      <div style="font-size:14px;font-weight:600;margin-top:4px">${esc(r.function)}</div>
       <div class="small muted">${esc(r.domain)} · impact ${r.impact}/4 · feasibility ${r.feasibility}/4</div></div></div>
     <div class="small mb">${esc(r.impact_note)}</div>
-    <div class="grid g2"><div><div class="small muted">Recommended actions</div><ol class="actions small">${r.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ol></div>
-    <div><div class="small muted">Scoring factors</div><ul class="actions small">${r.factors.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div></div></div>`;
+    <div class="grid g2"><div><div class="sublabel">Recommended actions</div><ol class="actions small">${r.actions.map(a => `<li>${esc(a)}</li>`).join("")}</ol></div>
+    <div><div class="sublabel">Scoring factors</div><ul class="actions small">${r.factors.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div></div></div>`;
 }
 
 // ================================================================== INCIDENTS
 function incidents() {
-  $("#view").innerHTML = `<div class="card">
-    <div class="btns mb"><div class="seg" id="i-seg">${[["open", "Open"], ["closed", "Closed"], ["all", "All"]].map(([k, l]) => `<button data-k="${k}" class="${S.incFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
-      <span style="flex:1"></span><a class="btn sm" href="/api/export?format=csv">⤓ Export CSV</a><a class="btn sm" href="/api/export?format=json">⤓ Full report (JSON)</a></div>
-    <div class="scroll"><table class="tbl"><thead><tr><th>#</th><th>Severity</th><th>Incident</th><th>Class</th><th class="num">Alerts</th><th>First seen</th><th>Last seen</th><th>Duration</th><th>Status</th><th>Assignee</th></tr></thead>
-    <tbody id="i-body"><tr><td colspan="10" class="loading"><span class="spin"></span></td></tr></tbody></table></div></div>`;
+  const st = S.stats || {};
+  $("#view").innerHTML = `
+  <div class="kpis">
+    <div class="kpi accent"><div class="l">Open incidents</div><div class="v">${st.incidents_open ?? "–"}</div><div class="s">new, acknowledged or investigating</div></div>
+    <div class="kpi bad ${st.critical_open ? "" : "zero"}"><div class="l">Critical open</div><div class="v">${st.critical_open ?? "–"}</div><div class="s">safety-relevant</div></div>
+    <div class="kpi"><div class="l">Total incidents</div><div class="v">${st.incidents_total ?? "–"}</div><div class="s">since last reset</div></div>
+    <div class="kpi"><div class="l">Mean time to acknowledge</div><div class="v">${fmtDur(st.mtta_s)}</div><div class="s">first alert → acknowledgement</div></div>
+  </div>
+  <div class="card">
+    <div class="toolbar"><div class="seg" id="i-seg">${[["open", "Open"], ["closed", "Closed"], ["all", "All"]].map(([k, l]) => `<button data-k="${k}" class="${S.incFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <span class="small dim" id="i-count"></span><span class="grow"></span><a class="btn sm" href="/api/export?format=csv">Export CSV</a><a class="btn sm" href="/api/export?format=json">Export full report (JSON)</a></div>
+    <div class="scroll flush" style="margin-top:0"><table class="tbl"><thead><tr><th>Incident</th><th>Severity</th><th>Title</th><th>Class</th><th class="num">Alerts</th><th>First seen</th><th>Last seen</th><th class="num">Duration</th><th>Status</th><th>Assignee</th></tr></thead>
+    <tbody id="i-body"><tr><td colspan="10" class="loading"><span class="spin"></span>Loading incidents</td></tr></tbody></table></div></div>`;
   $$("#i-seg button").forEach(b => b.onclick = () => { S.incFilter = b.dataset.k; incidents(); });
   loadIncidents();
 }
@@ -492,28 +531,29 @@ async function loadIncidents() {
   const f = { open: "new,acknowledged,investigating", closed: "resolved,false_positive", all: "" }[S.incFilter];
   const r = await api("/api/incidents?status=" + f);
   const body = $("#i-body"); if (!body) return;
-  body.innerHTML = r.rows.map(i => `<tr class="click" data-id="${i.id}"><td class="dim mono">${i.id}</td><td>${sevBadge(i.severity)}</td>
-    <td><b>${esc(i.title)}</b></td><td>${clsBadge(i.label)}</td><td class="num">${i.count}</td><td class="mono">${fmtTime(i.first_ts)}</td>
-    <td class="mono">${fmtTime(i.last_ts)}</td><td>${fmtDur(i.last_ts - i.first_ts)}</td><td>${stBadge(i.status)}</td><td>${esc(i.assignee || "—")}</td></tr>`).join("")
+  $("#i-count").textContent = `${r.rows.length} incident${r.rows.length === 1 ? "" : "s"}`;
+  body.innerHTML = r.rows.map(i => `<tr class="click ${i.rank === 4 && i.status !== "resolved" && i.status !== "false_positive" ? "crit" : ""}" data-id="${i.id}"><td class="mono">${incId(i.id)}</td><td>${sevBadge(i.severity)}</td>
+    <td>${esc(i.title)}</td><td>${clsBadge(i.label)}</td><td class="num">${i.count}</td><td class="mono dim">${fmtTime(i.first_ts)}</td>
+    <td class="mono dim">${fmtTime(i.last_ts)}</td><td class="num">${fmtDur(i.last_ts - i.first_ts)}</td><td>${stBadge(i.status)}</td><td class="${i.assignee ? "" : "dim"}">${esc(i.assignee || "unassigned")}</td></tr>`).join("")
     || `<tr><td colspan="10"><div class="empty">No incidents in this view</div></td></tr>`;
   $$("#i-body tr.click").forEach(tr => tr.onclick = () => openIncident(+tr.dataset.id));
 }
 async function openIncident(id) {
-  drawer(`<div class="dh"><h2>Incident #${id}</h2><span style="flex:1"></span><button class="x">×</button></div><div class="db"><div class="loading"><span class="spin"></span></div></div>`);
+  drawer(`<div class="dh"><h2 class="mono">${incId(id)}</h2><span style="flex:1"></span><button class="x">×</button></div><div class="db"><div class="loading"><span class="spin"></span></div></div>`);
   const i = await api(`/api/incidents/${id}`);
   if (!$(".drawer")) return;
   $(".drawer").innerHTML = `<div class="dh"><div>
-      <div class="btns" style="margin-bottom:6px">${sevBadge(i.severity)}${clsBadge(i.label)}${stBadge(i.status)}<span class="small dim">Incident #${i.id}</span></div>
+      <div class="btns" style="margin-bottom:6px;gap:10px">${sevBadge(i.severity)}${clsBadge(i.label)}<span class="mono small dim">${incId(i.id)} · opened ${new Date(i.first_ts * 1000).toLocaleString()}</span></div>
       <h2>${esc(i.title)}</h2></div><span style="flex:1"></span><button class="x">×</button></div>
     <div class="db">
       <div class="kpis"><div class="kpi"><div class="l">Alerts</div><div class="v">${i.count}</div></div>
         <div class="kpi"><div class="l">Duration</div><div class="v">${fmtDur(i.last_ts - i.first_ts)}</div><div class="s">${fmtTime(i.first_ts)} → ${fmtTime(i.last_ts)}</div></div>
         <div class="kpi"><div class="l">Time to acknowledge</div><div class="v">${i.ack_ts ? fmtDur(i.ack_ts - i.first_ts) : "pending"}</div></div>
-        <div class="kpi"><div class="l">Alert status</div><div class="s" style="margin-top:8px">${Object.entries(i.by_status).map(([k, v]) => `${stBadge(k)} ${v}`).join("<br>")}</div></div></div>
-      <div class="card">${workflowHTML(i.status, i.assignee)}<div class="small dim" style="margin-top:8px">Status changes apply to every open alert in this incident.</div></div>
+        <div class="kpi"><div class="l">Alert status</div><div class="s" style="margin-top:6px;line-height:1.7">${Object.entries(i.by_status).map(([k, v]) => `${stBadge(k)} <span class="mono">${v}</span>`).join("<br>")}</div></div></div>
+      ${workflowHTML(i.status, i.assignee, "Status changes apply to every open alert in this incident.")}
       ${riskHTML(i.risk)}
-      <div class="card"><h3>Alerts in this incident <span class="grow"></span><span class="small dim">latest ${i.alerts.length}</span></h3>
-        <div class="scroll" style="max-height:280px"><table class="tbl"><tbody>${i.alerts.map(a => `<tr class="click" data-id="${a.id}"><td class="dim mono">#${a.id}</td><td class="mono">${fmtTime(a.ts)}</td><td class="mono small">${bytesHTML(a.utr)}</td><td class="num">${pct(a.confidence)}</td><td>${stBadge(a.status)}</td></tr>`).join("")}</tbody></table></div></div>
+      <div class="card"><h3>Alerts in this incident <span class="grow"></span><span class="small">latest ${i.alerts.length}</span></h3>
+        <div class="scroll flush" style="max-height:280px"><table class="tbl"><thead><tr><th>Alert</th><th>Time</th><th>Payload D0–D7</th><th class="num">Conf.</th><th>Status</th></tr></thead><tbody>${i.alerts.map(a => `<tr class="click" data-id="${a.id}"><td class="mono">${alrId(a.id)}</td><td class="mono dim">${fmtTime(a.ts)}</td><td class="mono small">${bytesHTML(a.utr)}</td><td class="num">${pct(a.confidence)}</td><td>${stBadge(a.status)}</td></tr>`).join("")}</tbody></table></div></div>
       ${notesHTML(i.events)}
     </div>`;
   $$(".drawer .x").forEach(x => x.onclick = closeDrawer);
@@ -623,8 +663,8 @@ async function explain() {
       <td class="mono small">${top(f.combined)}</td><td class="num">${pct(f.combined[0], 0)}</td><td class="small">${f.pred === "BENIGN" ? "–" : DRIVER[f.driver] || "–"}</td><td class="num">${fix(f.consistency, 2)}</td></tr>`).join("")}</tbody></table></div></div>`;
   $$("#ex-body tr.click").forEach(tr => tr.onclick = () => location.hash = "#/inspector?utr=" + encodeURIComponent(tr.dataset.u));
   chart("ex-idp", { type: "bar", data: { labels: g.classes, datasets: [
-      { label: "CAN ID", data: g.classes.map(c => g.heatmap[c][0]), backgroundColor: "#4f8cff" },
-      { label: "Payload D0–D7", data: g.classes.map(c => 1 - g.heatmap[c][0]), backgroundColor: "#ffb547" }] },
+      { label: "CAN ID", data: g.classes.map(c => g.heatmap[c][0]), backgroundColor: PAL.amber },
+      { label: "Payload D0–D7", data: g.classes.map(c => 1 - g.heatmap[c][0]), backgroundColor: PAL.muted }] },
     options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, max: 1, ticks: { callback: v => v * 100 + "%" } } }, plugins: { legend: { position: "bottom" } } } });
 }
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
@@ -683,7 +723,7 @@ async function stats() {
     <div class="card"><h3>Model configuration <span class="grow"></span><span class="small dim">Table 5.4</span></h3>${m.config.map(([k, v]) => `<div class="stat-line"><span class="muted">${k}</span><span class="right">${v}</span></div>`).join("")}</div>
   </div>
   <div class="card mb"><h3>Comparison with related work <span class="grow"></span><span class="small dim">Table 7.4</span></h3><table class="tbl"><tr><th>Study</th><th>Evaluation protocol</th><th>Model</th><th class="num">Macro F1</th></tr>
-    ${m.comparison.map(c => `<tr ${c.study.startsWith("ERIS") ? 'style="background:rgba(79,140,255,.08)"' : ""}><td><b>${esc(c.study)}</b></td><td>${esc(c.protocol)}</td><td>${esc(c.model)}</td><td class="num">${fix(c.f1, 2)}</td></tr>`).join("")}</table>
+    ${m.comparison.map(c => `<tr class="${c.study.startsWith("ERIS") ? "hl" : ""}"><td><b>${esc(c.study)}</b></td><td>${esc(c.protocol)}</td><td>${esc(c.model)}</td><td class="num">${fix(c.f1, 2)}</td></tr>`).join("")}</table>
     <div class="small muted" style="margin-top:8px">Random splits of duplicated rows give perfect but leaked scores; removing duplicates drops them sharply. ERIS reports 0.91 under a strict pattern-level split.</div></div>
   <div class="card"><h3>Test predictions browser <span class="grow"></span><span class="small dim">test_predictions.csv · ${m.predictions.length.toLocaleString()} rows</span></h3>
     <div class="btns mb"><input id="pb-q" placeholder="Search UTR / CAN ID…" style="min-width:240px" value="${esc(S.predQ.q)}">
@@ -693,12 +733,12 @@ async function stats() {
     <div class="pager"><button class="btn sm" id="pb-prev">‹ Prev</button><span id="pb-range"></span><button class="btn sm" id="pb-next">Next ›</button></div></div>`;
   const tr = m.loss.train, ev = m.loss.eval;
   chart("st-loss", { type: "line", data: { datasets: [
-      { label: "Training loss (every 50 steps)", data: tr.map(p => ({ x: p.epoch, y: p.loss })), borderColor: "#4f8cff", pointRadius: 0, borderWidth: 2, tension: .2 },
-      { label: "Validation loss (per epoch)", data: ev.map(p => ({ x: p.epoch, y: p.loss })), borderColor: "#ff9f43", backgroundColor: "#ff9f43", borderDash: [5, 4],
+      { label: "Training loss (every 50 steps)", data: tr.map(p => ({ x: p.epoch, y: p.loss })), borderColor: PAL.amber, pointRadius: 0, borderWidth: 1.5, tension: .2 },
+      { label: "Validation loss (per epoch)", data: ev.map(p => ({ x: p.epoch, y: p.loss })), borderColor: PAL["text-2"], backgroundColor: PAL["text-2"], borderDash: [4, 3],
         pointRadius: ev.map(p => p === bestEpoch ? 8 : 4), pointStyle: ev.map(p => p === bestEpoch ? "star" : "circle"), borderWidth: 2 }] },
     options: { maintainAspectRatio: false, parsing: false, scales: { x: { type: "linear", min: 0, max: Math.ceil(Math.max(...tr.map(p => p.epoch), 1)), title: { display: true, text: "Epoch" } },
       y: { type: "logarithmic", title: { display: true, text: "Cross-entropy loss (log)" }, ticks: { callback: v => { const l = Math.log10(v); return Math.abs(l - Math.round(l)) < 1e-9 ? "10" + String(Math.round(l)).split("").map(ch => "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"["-0123456789".indexOf(ch)]).join("") : ""; } } } }, plugins: { legend: { position: "bottom" } } } });
-  chart("st-prf", { type: "bar", data: { labels: CLASSES, datasets: [["precision", "#4f8cff", "Precision"], ["recall", "#ff9f43", "Recall"], ["f1", "#3ecf8e", "F1-score"]].map(([k, c, l]) => ({ label: l, data: CLASSES.map(x => pc[x]?.[k]), backgroundColor: c })) },
+  chart("st-prf", { type: "bar", data: { labels: CLASSES, datasets: [["precision", PAL.muted, "Precision"], ["recall", PAL["text-2"], "Recall"], ["f1", PAL.amber, "F1-score"]].map(([k, c, l]) => ({ label: l, data: CLASSES.map(x => pc[x]?.[k]), backgroundColor: c })) },
     options: { maintainAspectRatio: false, scales: { y: { min: 0, max: 1.05 } }, plugins: { legend: { position: "bottom" } } } });
   const pb = () => {
     const q = S.predQ, needle = q.q.trim().toUpperCase();
@@ -720,8 +760,9 @@ function confusionHTML(c) {
   const max = Math.max(...c.matrix.flat());
   return `<div class="scroll"><table class="heat"><tr><th></th>${c.labels.map(l => `<th style="font-size:10px">${l.replace("_", " ")}</th>`).join("")}</tr>
     ${c.matrix.map((row, i) => `<tr><th class="rl">${clsBadge(c.labels[i])}</th>${row.map((v, j) => {
-      const bg = i === j ? `rgba(79,140,255,${.12 + .8 * v / max})` : v ? `rgba(255,84,104,${.25 + .6 * v / max})` : "rgba(34,48,82,.35)";
-      return `<td style="background:${bg};color:${v / max > .5 || (i !== j && v) ? "#fff" : "#8d99b6"};font-size:14px;padding:12px 4px;font-weight:${v ? 700 : 400}">${v}</td>`;
+      const bg = i === j && v ? `rgba(214,163,67,${.15 + .75 * v / max})` : v ? `rgba(225,93,80,${.3 + .55 * v / max})` : PAL["bg-2"];
+      const fg = i === j && v / max > .5 ? "#1A1810" : v ? PAL.text : PAL.muted;
+      return `<td style="background:${bg};color:${fg};font-size:13px;height:38px;font-weight:${v ? 600 : 400}">${v}</td>`;
     }).join("")}</tr>`).join("")}</table></div>`;
 }
 
@@ -767,7 +808,7 @@ async function runTests() {
   try {
     const r = await api("/api/selftest", { method: "POST" });
     $("#t-body").innerHTML = r.tests.map(t => `<tr><td class="mono"><b>${t.id}</b></td><td>${esc(t.name)}</td><td class="small">${esc(t.expected)}</td><td class="mono small">${esc(t.actual)}</td>
-      <td>${t.live ? `<span class="tag" style="color:var(--ok);background:rgba(62,207,142,.14)">live</span>` : `<span class="tag" style="color:var(--muted);background:rgba(141,153,182,.14)">saved run</span>`}</td>
+      <td>${t.live ? `<span class="tag ok">live</span>` : `<span class="tag">saved run</span>`}</td>
       <td class="test-${t.status}">${t.status === "pass" ? "✓ Pass" : t.status === "fail" ? "✗ Fail" : "See Ch. 7"}</td></tr>`).join("");
     $("#t-sum").innerHTML = `<b class="test-pass">${r.passed} passed</b> · ${r.tests.filter(t => t.status === "fail").length} failed · ${r.tests.filter(t => t.status === "info").length} informational`;
   } finally { b.disabled = false; b.innerHTML = "▶ Run checks"; }
