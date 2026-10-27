@@ -25,18 +25,18 @@ Everything is local: no internet is needed, and Chart.js is vendored.
 
 ## Talk track (≈8 min)
 
+The visible pages are Live Monitor, Alerts, Incidents and Model Stats. Inspector, Explainability and System & Tests are hidden in `HIDDEN` in `dashboard/static/app.js`. The printable version of this guide is `ERIS_Demo_Guide.pdf`.
+
 | # | Page | Do | Say |
 |---|------|----|-----|
-| 1 | **Live Monitor** | Point at the ticker and the traffic chart. Click **Steering spoofing** under "Inject". | "ERIS replays the held-out test frames of CICIoV2024 as live CAN traffic. None of these frames were seen in training. Every frame goes through classification, then explanation, then risk." A toast appears: "New Critical incident". |
-| 2 | **Alerts** | Click a Critical alert. | The analyst queue: severity, class, CAN ID, confidence and status. |
-| 3 | Alert drawer | Scroll through it. | **Explanation (our contribution):** the frame heatmap shows which bytes drove the decision, followed by the rationale in plain language. Four methods are shown side by side (occlusion, Integrated Gradients, cross-attention, counterfactual), plus the method-agreement score and the IG completeness check. Then **Risk**: the affected vehicle function, impact × feasibility (ISO/SAE 21434), and recommended actions. |
-| 4 | Alert drawer | Click **Acknowledge**, type an assignee, then **Assign**. Add a note. | The audit trail records who did what and when. MTTA updates on the Live Monitor. |
-| 5 | **Incidents** | Open the incident and click **Resolve**. Then click **Export CSV**. | Repeated frames are grouped into one incident, so the analyst isn't flooded. The export produces an incident report. |
-| 6 | **Frame Inspector** | Click **Analyse** on the default raw values `000001DC`, `2.0`, `3`. | This shows the formatting-leak fix live: the green values were normalised, and the frame is shown as a UTR and as tokens. |
-| 7 | Frame Inspector | Click the **RPM (error case)** preset. | This is the single error from Section 7.4. Point to the "Identifier vs payload" card: with the CAN ID hidden ERIS still says SPEED, but with the payload hidden it says RPM. So the SPEED-identical payload causes the error, which confirms Section 7.4 with evidence. CAN ID 201 is shared by RPM, GAS and SPEED in training, so the ID alone is ambiguous. |
-| 8 | **Explainability** | Show the "What decides attack frames" tile and the global heatmap. | Across the 8 held-out attack frames, the payload decides 3, the identifier decides 2, either one alone suffices for 2, and 1 needs both. The model relies heavily on CAN IDs, the exact shortcut risk raised in Limitations (Section 7.6). Explainability is how ERIS makes this visible to the analyst. |
-| 9 | **Model Stats** | Scroll down the page. | These are all the numbers from Chapter 7, so nobody has to read terminal output: 91.72% row accuracy, macro F1 0.9118, 32/33 patterns, and the reload check. Toggle **Live re-run** to show the run reproduced on this laptop. |
-| 10 | **System & Tests** | Click **▶ Run checks**. | Table 5.5 executed live against the running system. |
+| 1 | **Live Monitor** | Point at the ticker and the chart. | Held-out CICIoV2024 frames are replayed as live CAN traffic. Every frame goes through classification, then explanation, then risk. |
+| 2 | Live Monitor | Click **Steering spoofing** under "Inject". | A "New Critical incident" pop-up appears. |
+| 3 | **Alerts** | Click the top Critical alert. | The analyst queue: severity, class, CAN ID, confidence and status. |
+| 4 | Alert drawer | Scroll through it. | **Explainability (our contribution):** the heatmap, the rationale, the Identifier vs payload card, the verified counterfactual, and the agreement/IG checks. Then the **Risk** card: the affected function, impact × feasibility and the recommended actions. |
+| 5 | Alert drawer | Click **Acknowledged**, assign someone, add a note. | The audit trail records every action. |
+| 6 | **Incidents** | Open the incident, click **Resolved**, then **Export CSV**. | Repeated frames become one incident, and the export is the incident report. |
+| 7 | **Model Stats** | Scroll down, then switch to **Live re-run**. | All of Chapter 7: 91.72%, macro F1 0.9118, 32/33 patterns, reload check. The re-run on this laptop gave identical results. |
+| 8 | Model Stats | In Error analysis, click **Explain this frame**. | With the CAN ID hidden the result is still SPEED; with the payload hidden it is RPM. The payload causes the Section 7.4 error. |
 
 ## Likely questions
 

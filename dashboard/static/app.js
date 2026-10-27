@@ -69,9 +69,11 @@ const PAGES = {
   system: ["System & Tests", "Architecture, evaluation protocol and live self-checks"],
 };
 
+const HIDDEN = new Set(["inspector", "explain", "system"]);  // pages kept in code but not shown for now
+
 function route() {
   const [p, qs] = (location.hash.replace(/^#\/?/, "") || "overview").split("?");
-  const page = PAGES[p] ? p : "overview";
+  const page = PAGES[p] && !HIDDEN.has(p) ? p : "overview";
   $$("#drawer-root canvas").forEach(c => Chart.getChart(c)?.destroy());
   $("#drawer-root").innerHTML = "";
   Object.values(S.charts).forEach(c => c.destroy()); S.charts = {};
@@ -388,6 +390,27 @@ async function openAlert(id) {
   if (a.explanation) drawProbChart("d-probs", a.explanation.probs);
 }
 
+// explanation drawer for any frame (Model Stats links)
+async function openFrame(utr) {
+  drawer(`<div class="dh"><h2>Frame explanation</h2><span style="flex:1"></span><button class="x">×</button></div><div class="db"><div class="loading"><span class="spin"></span> Classifying and explaining…</div></div>`);
+  let r;
+  try { r = await api("/api/classify", { method: "POST", body: { utr } }); }
+  catch (e) { if ($(".drawer .db")) $(".drawer .db").innerHTML = `<div class="banner">${esc(e.message)}</div>`; return; }
+  if (!$(".drawer")) return;
+  const ex = r.explanation;
+  $(".drawer").innerHTML = `<div class="dh"><div>
+      <div class="btns" style="margin-bottom:6px">${clsBadge(ex.label)}<span class="small dim">confidence ${pct(ex.confidence, 2)}</span></div>
+      <h2>${esc(PRETTY[ex.label])} on CAN ID 0x${esc(ex.values[0])}</h2><div class="mono small muted" style="margin-top:4px">${esc(r.utr)}</div></div>
+      <span style="flex:1"></span><button class="x">×</button></div>
+    <div class="db">${explanationHTML(ex)}${riskHTML(r.risk)}</div>`;
+  $$(".drawer .x").forEach(x => x.onclick = closeDrawer);
+  drawProbChart("d-probs", ex.probs);
+}
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-frame]");
+  if (el) { e.preventDefault(); openFrame(el.dataset.frame); }
+});
+
 // ------------------------------------------------------------------ explanation + risk components
 const heatBg = (v, rgb = "255,181,71") => `background:rgba(${rgb},${Math.min(.9, .06 + v * 1.4)});color:${v > .35 ? "#111" : "#e7ecf6"}`;
 function frameHTML(values, shares, changed = []) {
@@ -647,7 +670,7 @@ async function stats() {
     <div class="card callout"><h3>Error analysis <span class="grow"></span><span class="small dim">Section 7.4</span></h3>
       ${m.patterns.filter(p => !p.correct).map(p => `<div class="mono mb">${esc(p.utr)}</div><div class="mb">True ${clsBadge(p.true)} predicted ${clsBadge(p.pred)} on <b>${p.rows}</b> test rows.</div>`).join("") || "<div>No misclassified frames.</div>"}
       <div class="small">Its eight payload bytes <span class="mono">06 1C 06 3F 06 2A 02 29</span> are identical to the SPEED frame on CAN ID 158, and its CAN ID 201 is the GAS identifier. A frame with an RPM label, a SPEED payload and a GAS identifier points to a labelling artefact in the dataset. The explanation confirms the decision is driven by the payload.</div>
-      <div class="btns" style="margin-top:10px"><a class="btn sm" href="#/inspector?utr=${encodeURIComponent("CAN_ID 201 D0 06 D1 1C D2 06 D3 3F D4 06 D5 2A D6 02 D7 29")}">Explain this frame ›</a></div></div>
+      <div class="btns" style="margin-top:10px"><button class="btn sm" data-frame="CAN_ID 201 D0 06 D1 1C D2 06 D3 3F D4 06 D5 2A D6 02 D7 29">Explain this frame ›</button></div></div>
   </div>
   <div class="grid g3 mb">
     <div class="card"><h3>Dataset <span class="grow"></span><span class="small dim">Table 5.1</span></h3><table class="tbl compact"><tr><th>Class</th><th class="num">Raw rows</th><th class="num">Patterns</th></tr>
@@ -684,7 +707,7 @@ async function stats() {
     $("#pb-n").textContent = `${rows.length.toLocaleString()} rows`;
     $("#pb-range").textContent = `page ${q.page + 1} / ${pages}`;
     $("#pb-body").innerHTML = rows.slice(q.page * per, q.page * per + per).map(p => `<tr class="${p.true_class !== p.predicted_class ? "bad" : ""}"><td class="dim mono">${p.i}</td><td class="mono small">${esc(p.utr)}</td><td>${clsBadge(p.true_class)}</td><td>${clsBadge(p.predicted_class)}</td>
-      <td><a class="small" href="#/inspector?utr=${encodeURIComponent(p.utr)}">explain ›</a></td></tr>`).join("");
+      <td><a class="small" href="#" data-frame="${esc(p.utr)}">explain ›</a></td></tr>`).join("");
   };
   $("#pb-q").oninput = e => { S.predQ.q = e.target.value; S.predQ.page = 0; pb(); };
   $("#pb-c").onchange = e => { S.predQ.cls = e.target.value; S.predQ.page = 0; pb(); };
