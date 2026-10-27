@@ -9,3 +9,10 @@ model/
 .DS_Store
 __pycache__/
 .ipynb_checkpoints/
+data/# demo
+data/
+.venv/
+results_live/ckpt/
+results_live/model/
+dashboard/eris.db
+results_dev/

@@ -1,0 +1,13 @@
+torch>=2.3
+transformers>=4.46,<5
+datasets>=2.19
+tokenizers>=0.19
+accelerate>=0.30
+sentencepiece>=0.2
+scikit-learn>=1.4
+pandas>=2.1
+numpy>=1.26
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pytest>=8.0
+httpx>=0.27

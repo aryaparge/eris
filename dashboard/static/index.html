@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ERIS Analyst Console</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f8cff'/><text x='16' y='22' font-size='17' font-family='Arial' font-weight='bold' text-anchor='middle' fill='white'>E</text></svg>">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">E</div>
+      <div><b>ERIS</b><span>Explainable, Risk-aware IDS</span></div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="sep">Operations</div>
+      <a href="#/overview" data-page="overview"><span class="ico">◉</span>Live Monitor</a>
+      <a href="#/alerts" data-page="alerts"><span class="ico">⚠</span>Alerts<span class="badge hidden" id="nb-alerts">0</span></a>
+      <a href="#/incidents" data-page="incidents"><span class="ico">▣</span>Incidents<span class="badge hidden" id="nb-inc">0</span></a>
+      <div class="sep">Analysis</div>
+      <a href="#/inspector" data-page="inspector"><span class="ico">⌕</span>Frame Inspector</a>
+      <a href="#/explain" data-page="explain"><span class="ico">✦</span>Explainability</a>
+      <div class="sep">Model</div>
+      <a href="#/stats" data-page="stats"><span class="ico">▤</span>Model Stats</a>
+      <a href="#/system" data-page="system"><span class="ico">⚙</span>System &amp; Tests</a>
+    </nav>
+    <div class="foot">CICIoV2024 · T5 encoder-decoder<br>VIT · BCSE497J Project-I</div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <h1 id="page-title">Live Monitor</h1>
+        <div class="sub" id="page-sub"></div>
+      </div>
+      <div class="grow"></div>
+      <span class="pill hidden warn" id="pill-dev" title="Stand-in model used before the real model is trained">development model</span>
+      <span class="pill" id="pill-model"><span class="dot"></span><span>loading model…</span></span>
+      <span class="pill" id="pill-stream"><span class="dot"></span><span>stream</span></span>
+      <span class="pill mono" id="clock">--:--:--</span>
+    </header>
+    <div class="content" id="view"></div>
+  </main>
+</div>
+<div id="drawer-root"></div>
+<div class="toasts" id="toasts"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

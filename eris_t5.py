@@ -119,7 +119,8 @@ if args.scratch:
     tk.pre_tokenizer = pre_tokenizers.WhitespaceSplit()
     tk.post_processor = processors.TemplateProcessing(single="$A </s>", special_tokens=[("</s>", 1)])
     tokenizer = PreTrainedTokenizerFast(tokenizer_object=tk, pad_token="<pad>",
-                                        eos_token="</s>", unk_token="<unk>")
+                                        eos_token="</s>", unk_token="<unk>",
+                                        model_input_names=["input_ids", "attention_mask"])
     cfg = T5Config(vocab_size=len(vocab), d_model=512, d_kv=64, d_ff=2048, num_layers=6,
                    num_decoder_layers=6, num_heads=8, pad_token_id=0, eos_token_id=1,
                    decoder_start_token_id=0)  # = t5-small architecture
