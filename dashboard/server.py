@@ -38,6 +38,9 @@ def load_models():
         frames = STREAM.patterns()
         eng.classify(frames)  # warm cache for every replayable frame
         compute_global()
+        for u in frames:  # explanations for every attack frame the stream can replay
+            if eng.classify_one(u)["label"] != "BENIGN":
+                get_explanation(u)
 
 
 def compute_global():
@@ -58,6 +61,8 @@ def compute_global():
 
 
 def get_explanation(utr, label=None):
+    if label == state["engine"].classify_one(utr)["label"]:
+        label = None
     key = (utr, label)
     if key not in explain_cache:
         explain_cache[key] = explain(state["engine"], state["ref"], utr, label)
