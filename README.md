@@ -39,6 +39,14 @@ uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requi
 .venv/bin/python eris_t5.py --data data --out results_pre            # pretrained t5-small (needs Hugging Face access)
 ```
 
+Use the trained model from the terminal:
+
+```bash
+.venv/bin/python scripts/predict.py --test                                   # re-score all held-out test frames
+.venv/bin/python scripts/predict.py --id 000001DC --data 2.0 1E F5 3 0 0 0 0 # one raw frame
+.venv/bin/python scripts/predict.py --utr "CAN_ID 158 D0 06 D1 1C D2 06 D3 3F D4 06 D5 2A D6 02 D7 29" --explain
+```
+
 `./train_live.sh` runs the scratch command and then `scripts/precompute.py`, which saves the training-split reference frames and the explanations the dashboard uses.
 
 ## Analyst console (`dashboard/`)
