@@ -1,0 +1,940 @@
+{
+ "fields": [
+  "CAN_ID",
+  "D0",
+  "D1",
+  "D2",
+  "D3",
+  "D4",
+  "D5",
+  "D6",
+  "D7"
+ ],
+ "classes": [
+  "BENIGN",
+  "DoS",
+  "GAS",
+  "RPM",
+  "SPEED",
+  "STEERING_WHEEL"
+ ],
+ "heatmap": {
+  "BENIGN": [
+   0.06282572489285813,
+   0.12092176240115554,
+   0.10362158566265384,
+   0.09389370749568661,
+   0.13254901350779194,
+   0.08517559187779825,
+   0.13258409444186284,
+   0.10283190775951503,
+   0.16559661196067788
+  ],
+  "DoS": [
+   0.8542402846735871,
+   0.010751960796830518,
+   0.03660698221791061,
+   0.009668203894626538,
+   0.006728632296885026,
+   0.016087169207331463,
+   0.008866823701333579,
+   0.023654864345567152,
+   0.03339507886592799
+  ],
+  "GAS": [
+   0.6214331746650488,
+   0.04868947336010646,
+   0.047761648470873254,
+   0.049328911426776735,
+   0.04897095562278356,
+   0.04666585724777082,
+   0.04870789725091938,
+   0.03132878411500771,
+   0.05711329784071326
+  ],
+  "RPM": [
+   0.7609016311521295,
+   0.10322152362468637,
+   0.017841991624210803,
+   0.0010838159617373355,
+   0.012740214255253717,
+   0.02591134296530805,
+   0.025952474092681924,
+   0.025943792376867846,
+   0.026403213947124384
+  ],
+  "SPEED": [
+   0.6885136897512433,
+   0.07537257678336326,
+   0.0011496973249622716,
+   0.0738881722753933,
+   0.0073188991521544846,
+   0.0741471188558384,
+   0.007063861969607775,
+   0.06271426505136385,
+   0.009831718836073396
+  ],
+  "STEERING_WHEEL": [
+   0.6897719179423207,
+   0.000654985006862438,
+   0.01099699099957075,
+   0.16985988165413754,
+   0.01553288302458058,
+   0.02245693425302254,
+   0.03800307983275764,
+   0.004018073375111274,
+   0.04870525391163645
+  ]
+ },
+ "frames": [
+  {
+   "utr": "CAN_ID 080 D0 84 D1 03 D2 02 D3 23 D4 18 D5 05 D6 8A D7 22",
+   "true": "STEERING_WHEEL",
+   "pred": "STEERING_WHEEL",
+   "combined": [
+    0.6897719179423207,
+    0.000654985006862438,
+    0.01099699099957075,
+    0.16985988165413754,
+    0.01553288302458058,
+    0.02245693425302254,
+    0.03800307983275764,
+    0.004018073375111274,
+    0.04870525391163645
+   ],
+   "consistency": 0.5,
+   "driver": "payload",
+   "rationale": [
+    "ERIS classified this frame as Steering-wheel spoofing with 100.0% confidence.",
+    "At field level, attribution concentrates on the CAN ID (ID 080), which carries 69% of the total.",
+    "Hiding the CAN ID leaves the decision unchanged (STEERING_WHEEL 58%), but hiding the payload turns it into BENIGN (87%): the payload drives this decision - its bytes act together, so no single byte is decisive.",
+    "In the training split, CAN ID 080 is used only by STEERING_WHEEL (1 pattern).",
+    "The nearest known frame is a STEERING_WHEEL frame differing in 2 of 9 fields (D0 and D1).",
+    "Counterfactual: changing D7 from 22 to 00 would make ERIS treat the frame as benign (100%).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.50)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 201 D0 06 D1 1C D2 06 D3 3F D4 06 D5 2A D6 02 D7 29",
+   "true": "RPM",
+   "pred": "SPEED",
+   "combined": [
+    0.7661246317429826,
+    0.06345629836596418,
+    0.0014374164702655398,
+    0.06019509352199998,
+    0.002905453191500843,
+    0.061020599388573446,
+    0.01332148290745644,
+    0.01835244539420723,
+    0.013186579017049734
+   ],
+   "consistency": 0.2333333333333333,
+   "driver": "payload",
+   "rationale": [
+    "ERIS classified this frame as SPEED spoofing with 100.0% confidence.",
+    "At field level, attribution concentrates on the CAN ID (ID 201), which carries 77% of the total.",
+    "Hiding the CAN ID leaves the decision unchanged (SPEED 100%), but hiding the payload turns it into RPM (99%): the payload drives this decision - its bytes act together, so no single byte is decisive.",
+    "In the training split, CAN ID 201 is used by RPM (2 patterns), GAS (1 pattern) and SPEED (1 pattern).",
+    "The nearest known frame is a SPEED frame differing in 5 of 9 fields.",
+    "Counterfactual: changing CAN_ID from 201 to 40A, D0 from 06 to C0, D2 from 06 to 00 and D4 from 06 to 0E would make ERIS treat the frame as benign (100%).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.23)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 201 D0 00 D1 00 D2 00 D3 00 D4 00 D5 00 D6 40 D7 9C",
+   "true": "GAS",
+   "pred": "GAS",
+   "combined": [
+    0.6214331746650488,
+    0.04868947336010646,
+    0.047761648470873254,
+    0.049328911426776735,
+    0.04897095562278356,
+    0.04666585724777082,
+    0.04870789725091938,
+    0.03132878411500771,
+    0.05711329784071326
+   ],
+   "consistency": 0.18333333333333335,
+   "driver": "both",
+   "rationale": [
+    "ERIS classified this frame as GAS pedal spoofing with 90.8% confidence.",
+    "At field level, attribution concentrates on the CAN ID (ID 201), which carries 62% of the total.",
+    "Neither part is enough on its own (ID hidden \u2192 BENIGN, payload hidden \u2192 RPM): ERIS needs the identifier and payload together.",
+    "In the training split, CAN ID 201 is used by RPM (2 patterns), GAS (1 pattern) and SPEED (1 pattern).",
+    "The nearest known frame is a GAS frame differing in 2 of 9 fields (D6 and D7).",
+    "Counterfactual: changing CAN_ID from 201 to 3C8 would make ERIS treat the frame as benign (100%).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.18)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 213 D0 FF D1 FF D2 08 D3 7F D4 2F D5 07 D6 FF D7 50",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.049736336246027094,
+    0.18044753372554384,
+    0.177186183558543,
+    0.1752025327245138,
+    0.09330674353770561,
+    0.03617454505197073,
+    0.03237830399384781,
+    0.1876813310827034,
+    0.06788649007914471
+   ],
+   "consistency": 0.5693040864574421,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D6, D0 and D1 (D6=FF, D0=FF, D1=FF), which together carry 55% of the total.",
+    "CAN ID 213 never appears in the training split.",
+    "The nearest known frame is a BENIGN frame differing in 6 of 9 fields.",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.57)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 158 D0 06 D1 1C D2 06 D3 3F D4 06 D5 2A D6 02 D7 29",
+   "true": "SPEED",
+   "pred": "SPEED",
+   "combined": [
+    0.6109027477595039,
+    0.08728885520076232,
+    0.0008619781796590035,
+    0.0875812510287866,
+    0.011732345112808126,
+    0.08727363832310335,
+    0.0008062410317591101,
+    0.10707608470852047,
+    0.0064768586550970585
+   ],
+   "consistency": 0.7,
+   "driver": "payload",
+   "rationale": [
+    "ERIS classified this frame as SPEED spoofing with 100.0% confidence.",
+    "At field level, attribution concentrates on the CAN ID (ID 158), which carries 61% of the total.",
+    "Hiding the CAN ID leaves the decision unchanged (SPEED 100%), but hiding the payload turns it into BENIGN (96%): the payload drives this decision - its bytes act together, so no single byte is decisive.",
+    "In the training split, CAN ID 158 is used only by SPEED (2 patterns).",
+    "The nearest known frame is a SPEED frame differing in 4 of 9 fields.",
+    "Counterfactual: changing CAN_ID from 158 to 40A and D2 from 06 to 00 would make ERIS treat the frame as benign (100%).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.70)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 167 D0 00 D1 80 D2 00 D3 00 D4 00 D5 01 D6 E3 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.06643615777209907,
+    0.14013249582615553,
+    0.06351299538198311,
+    0.14612490040026355,
+    0.13804517766081986,
+    0.13933121964521825,
+    0.10089626379766062,
+    0.06532877618884383,
+    0.1401920133269561
+   ],
+   "consistency": 0.3105295017040594,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D2, D7 and D0 (D2=00, D7=00, D0=00), which together carry 43% of the total.",
+    "CAN ID 167 never appears in the training split.",
+    "The nearest known frame is a BENIGN frame differing in 4 of 9 fields.",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.31)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 123 D0 0F D1 09 D2 0D D3 09 D4 0B D5 09 D6 0B D7 08",
+   "true": "DoS",
+   "pred": "DoS",
+   "combined": [
+    0.8787387278278176,
+    0.010132433697885206,
+    0.007809395994780055,
+    0.003918952444929619,
+    0.007100033016661065,
+    0.023576342714055055,
+    0.007518426640436791,
+    0.023870418784571634,
+    0.03733526887886291
+   ],
+   "consistency": 0.7302967433402214,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as DoS flooding with 100.0% confidence.",
+    "At field level, attribution concentrates on the CAN ID (ID 123), which carries 88% of the total.",
+    "The CAN ID alone and the payload alone each lead ERIS to the same decision: the evidence is redundant.",
+    "In the training split, CAN ID 123 is used only by DoS (15 patterns).",
+    "The nearest known frame is a DoS frame differing in 7 of 9 fields.",
+    "Counterfactual: changing CAN_ID from 123 to 084 and D7 from 08 to 00 would make ERIS treat the frame as benign (99%).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.73)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 1DC D0 02 D1 1E D2 F5 D3 03 D4 00 D5 00 D6 00 D7 00",
+   "true": "RPM",
+   "pred": "RPM",
+   "combined": [
+    0.7609016311521295,
+    0.10322152362468637,
+    0.017841991624210803,
+    0.0010838159617373355,
+    0.012740214255253717,
+    0.02591134296530805,
+    0.025952474092681924,
+    0.025943792376867846,
+    0.026403213947124384
+   ],
+   "consistency": 0.36976095499904793,
+   "driver": "identifier",
+   "rationale": [
+    "ERIS classified this frame as RPM spoofing with 100.0% confidence.",
+    "At field level, attribution concentrates on the CAN ID (ID 1DC), which carries 76% of the total.",
+    "Hiding the payload leaves the decision unchanged (RPM 100%), but hiding the CAN ID turns it into BENIGN (100%): the identifier drives this decision.",
+    "In the training split, CAN ID 1DC is used only by RPM (4 patterns).",
+    "The nearest known frame is an RPM frame differing in 2 of 9 fields (D1 and D2).",
+    "Counterfactual: changing CAN_ID from 1DC to 3A8 would make ERIS treat the frame as benign (100%).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.37)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 123 D0 0A D1 0B D2 02 D3 0C D4 05 D5 0D D6 01 D7 0E",
+   "true": "DoS",
+   "pred": "DoS",
+   "combined": [
+    0.7980258028708033,
+    0.0032566202452610745,
+    0.09423280665837691,
+    0.020926865208558968,
+    0.009190632750391973,
+    0.016208340857959573,
+    0.013961029613691705,
+    0.0394065565241952,
+    0.004791345270761318
+   ],
+   "consistency": 0.8439494725697221,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as DoS flooding with 100.0% confidence.",
+    "At field level, attribution concentrates on the CAN ID (ID 123), which carries 80% of the total.",
+    "The CAN ID alone and the payload alone each lead ERIS to the same decision: the evidence is redundant.",
+    "In the training split, CAN ID 123 is used only by DoS (15 patterns).",
+    "The nearest known frame is a DoS frame differing in 7 of 9 fields.",
+    "Counterfactual: changing CAN_ID from 123 to 084 and D1 from 0B to 00 would make ERIS treat the frame as benign (100%).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.84)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 123 D0 03 D1 02 D2 0D D3 0D D4 0A D5 0F D6 02 D7 04",
+   "true": "DoS",
+   "pred": "DoS",
+   "combined": [
+    0.8859563233221405,
+    0.01886682844734527,
+    0.007778744000574853,
+    0.004158794030391028,
+    0.0038952311236020395,
+    0.008476824049979757,
+    0.005121014849872238,
+    0.007687617727934628,
+    0.058058622448159736
+   ],
+   "consistency": 0.5421104980065684,
+   "driver": "identifier",
+   "rationale": [
+    "ERIS classified this frame as DoS flooding with 100.0% confidence.",
+    "At field level, attribution concentrates on the CAN ID (ID 123), which carries 89% of the total.",
+    "Hiding the payload leaves the decision unchanged (DoS 100%), but hiding the CAN ID turns it into RPM (49%): the identifier drives this decision.",
+    "In the training split, CAN ID 123 is used only by DoS (15 patterns).",
+    "The nearest known frame is a DoS frame differing in 6 of 9 fields.",
+    "Counterfactual: changing CAN_ID from 123 to 331, D0 from 03 to C0, D1 from 02 to 00 and D7 from 04 to 02 would make ERIS treat the frame as benign (100%).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.54)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 041 D0 60 D1 00 D2 00 D3 00 D4 00 D5 00 D6 00 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.09535486085449946,
+    0.02570543273112453,
+    0.12707031336453317,
+    0.1320843941365596,
+    0.12316010058853044,
+    0.12491503483566296,
+    0.12291412031161517,
+    0.1233189373242618,
+    0.1254768058532129
+   ],
+   "consistency": 0.5477225575051661,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D2, D1 and D7 (D2=00, D1=00, D7=00), which together carry 38% of the total.",
+    "CAN ID 041 never appears in the training split.",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (CAN_ID and D0).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.55)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 415 D0 00 D1 00 D2 24 D3 F6 D4 0F D5 FF D6 0F D7 FF",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.06718592303415144,
+    0.13964845275256774,
+    0.14026540085172176,
+    0.034604650156395654,
+    0.08343086198551031,
+    0.1008455196748047,
+    0.16951382655021224,
+    0.1038996328481486,
+    0.16060573214648755
+   ],
+   "consistency": 0.9128709291752769,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D5, D7 and D1 (D5=FF, D7=FF, D1=00), which together carry 47% of the total.",
+    "In the training split, CAN ID 415 is used only by BENIGN (12 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D2 and D3).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.91)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 4B0 D0 FF D1 00 D2 80 D3 00 D4 B0 D5 00 D6 28 D7 EF",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.03780111795911475,
+    0.3085199742272334,
+    0.1467265579907991,
+    0.0560037309678572,
+    0.1444695670163959,
+    0.07630684207164015,
+    0.1307005860925124,
+    0.0729483803462801,
+    0.026523243328167065
+   ],
+   "consistency": 0.9355777949468197,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D0, D1 and D3 (D0=FF, D1=00, D3=00), which together carry 60% of the total.",
+    "In the training split, CAN ID 4B0 is used only by BENIGN (21 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D4 and D7).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.94)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 214 D0 00 D1 00 D2 00 D3 00 D4 00 D5 00 D6 FE D7 10",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.09033374042334937,
+    0.11557041055465264,
+    0.11616202964398992,
+    0.12037362123704184,
+    0.11412619985139523,
+    0.11524368396234452,
+    0.11360152661627787,
+    0.07175639510718516,
+    0.14283239260376346
+   ],
+   "consistency": -0.5477225575051661,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D7, D2 and D1 (D7=10, D2=00, D1=00), which together carry 38% of the total.",
+    "In the training split, CAN ID 214 is used only by BENIGN (13 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D6 and D7).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = -0.55)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 202 D0 1C D1 FD D2 00 D3 00 D4 40 D5 00 D6 00 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.06658679068279766,
+    0.05070829663424722,
+    0.1442278156834732,
+    0.14764490330820565,
+    0.14041940821460008,
+    0.04000269946168125,
+    0.1395615686966959,
+    0.14093988381589265,
+    0.12990863350240642
+   ],
+   "consistency": 0.6335525936249405,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D2, D1 and D6 (D2=00, D1=FD, D6=00), which together carry 43% of the total.",
+    "In the training split, CAN ID 202 is used only by BENIGN (12 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D1 and D2).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.63)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 07D D0 00 D1 00 D2 F1 D3 E0 D4 00 D5 3F D6 FF D7 FF",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.020509343507418617,
+    0.11979495738883236,
+    0.12133820431186107,
+    0.08292229422717831,
+    0.08253355128341704,
+    0.11943266658368433,
+    0.08682816337605817,
+    0.18622304055598354,
+    0.18041777876556653
+   ],
+   "consistency": 0.8366600265340756,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D6, D7 and D1 (D6=FF, D7=FF, D1=00), which together carry 49% of the total.",
+    "In the training split, CAN ID 07D is used only by BENIGN (9 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D2 and D3).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.84)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 434 D0 24 D1 00 D2 14 D3 00 D4 0F D5 FF D6 02 D7 60",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.023305303529971927,
+    0.0022121206421705534,
+    0.0855227629973622,
+    0.024709886544955262,
+    0.08405662230069917,
+    0.04523808134439791,
+    0.6173795923167806,
+    0.09592736951722208,
+    0.02164826080644029
+   ],
+   "consistency": 0.5272012675161055,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D5 (D5=FF), which carries 62% of the total.",
+    "In the training split, CAN ID 434 is used only by BENIGN (4 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 1 of 9 fields (D7).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.53)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 07D D0 00 D1 00 D2 F3 D3 C0 D4 00 D5 3F D6 FF D7 FF",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.08021961821026163,
+    0.052521707073447346,
+    0.052726243977740485,
+    0.009974583163879858,
+    0.5517528567221578,
+    0.05127232036878999,
+    0.041968350076479845,
+    0.08073223061898543,
+    0.07883208978825768
+   ],
+   "consistency": 0.09618089480761698,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D3 and D6 (D3=C0, D6=FF), which together carry 63% of the total.",
+    "In the training split, CAN ID 07D is used only by BENIGN (9 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D2 and D3).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.10)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 083 D0 0F D1 E0 D2 00 D3 00 D4 00 D5 00 D6 00 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.029334435634135715,
+    0.1549925630289542,
+    0.08509227814587647,
+    0.134604871933226,
+    0.12664386895023977,
+    0.11459742181772184,
+    0.12617793146028838,
+    0.11362894482384325,
+    0.11492768420571439
+   ],
+   "consistency": 0.223606797749979,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D0, D2 and D3 (D0=0F, D2=00, D3=00), which together carry 42% of the total.",
+    "CAN ID 083 never appears in the training split.",
+    "The nearest known frame is a BENIGN frame differing in 3 of 9 fields (CAN_ID, D0 and D1).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.22)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 4B0 D0 FF D1 00 D2 80 D3 00 D4 40 D5 00 D6 28 D7 F6",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.05185463158152686,
+    0.3146811103693421,
+    0.12924844264811536,
+    0.05559818472815378,
+    0.127119260916056,
+    0.034136585623198115,
+    0.12610105709889974,
+    0.07398125887531475,
+    0.0872794681593933
+   ],
+   "consistency": 0.5477225575051661,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D0, D1 and D3 (D0=FF, D1=00, D3=00), which together carry 57% of the total.",
+    "In the training split, CAN ID 4B0 is used only by BENIGN (21 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D4 and D7).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.55)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 416 D0 4A D1 60 D2 F4 D3 08 D4 01 D5 0A D6 80 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.09143309473444003,
+    0.030595366861754923,
+    0.015324541074813016,
+    0.004680151893609891,
+    0.09387199222862942,
+    0.004543115522657848,
+    0.04856723754637626,
+    0.004024539970843513,
+    0.706959960166875
+   ],
+   "consistency": 0.7166666666666667,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D7 (D7=00), which carries 71% of the total.",
+    "In the training split, CAN ID 416 is used only by BENIGN (8 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D0 and D2).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.72)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 3B6 D0 08 D1 00 D2 05 D3 00 D4 00 D5 00 D6 00 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.059473879629338394,
+    0.10186234637854039,
+    0.1082854898838804,
+    0.2004194685846467,
+    0.10537010264423412,
+    0.10699894083355854,
+    0.10515665886716277,
+    0.10558995593081538,
+    0.10684315724782331
+   ],
+   "consistency": -0.10891622972743419,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D2, D1 and D4 (D2=05, D1=00, D4=00), which together carry 42% of the total.",
+    "In the training split, CAN ID 3B6 is used only by BENIGN (6 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 1 of 9 fields (D2).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = -0.11)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 435 D0 28 D1 20 D2 08 D3 1C D4 00 D5 20 D6 29 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.05589474773257592,
+    0.09108476149339478,
+    0.0694330559978072,
+    0.09081334414830189,
+    0.028960066408531902,
+    0.23717458826813592,
+    0.06532902770651404,
+    0.12020657597352552,
+    0.24110383227121285
+   ],
+   "consistency": 0.5809475019311126,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D7, D4 and D6 (D7=00, D4=00, D6=29), which together carry 60% of the total.",
+    "In the training split, CAN ID 435 is used only by BENIGN (19 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 1 of 9 fields (D3).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.58)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 415 D0 00 D1 00 D2 30 D3 F3 D4 0F D5 FF D6 0F D7 FF",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.06214278149388555,
+    0.14768037875355436,
+    0.14869173045709094,
+    0.04617129415442436,
+    0.07130567902231448,
+    0.09603055550615452,
+    0.16979853455470917,
+    0.09867019762599782,
+    0.1595088484318688
+   ],
+   "consistency": 0.8660254037844386,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D5, D7 and D1 (D5=FF, D7=FF, D1=00), which together carry 48% of the total.",
+    "In the training split, CAN ID 415 is used only by BENIGN (12 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D2 and D3).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.87)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 202 D0 1C D1 F4 D2 48 D3 00 D4 40 D5 00 D6 00 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.06255593135633974,
+    0.054112547090895906,
+    0.0665144022552935,
+    0.12957524177295532,
+    0.15853267036790752,
+    0.051074697538760004,
+    0.15751529915277068,
+    0.15941340628607598,
+    0.16070580417900135
+   ],
+   "consistency": 0.7930394470805664,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D7, D6 and D3 (D7=00, D6=00, D3=00), which together carry 48% of the total.",
+    "In the training split, CAN ID 202 is used only by BENIGN (12 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D1 and D2).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.79)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 166 D0 7A D1 20 D2 00 D3 00 D4 00 D5 6A D6 00 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.04758340579555486,
+    0.0747448377438119,
+    0.06870368843787199,
+    0.1378457419630873,
+    0.13059490685158298,
+    0.1316434134059114,
+    0.14507161793773118,
+    0.13118050448511,
+    0.13263188337933837
+   ],
+   "consistency": 0.6210590034081188,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D5, D2 and D7 (D5=6A, D2=00, D7=00), which together carry 42% of the total.",
+    "CAN ID 166 never appears in the training split.",
+    "The nearest known frame is a BENIGN frame differing in 4 of 9 fields.",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.62)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 07D D0 00 D1 00 D2 FF D3 00 D4 00 D5 3F D6 FF D7 FF",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.022756661872553374,
+    0.12034711908781087,
+    0.1217980057222532,
+    0.13555518123840737,
+    0.12010740179080379,
+    0.11980518899550657,
+    0.06992772789792397,
+    0.1469803464087848,
+    0.14272236698595603
+   ],
+   "consistency": 0.7302967433402214,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D6, D7 and D2 (D6=FF, D7=FF, D2=FF), which together carry 43% of the total.",
+    "In the training split, CAN ID 07D is used only by BENIGN (9 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D2 and D3).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.73)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 202 D0 1C D1 FB D2 10 D3 00 D4 40 D5 00 D6 00 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.06449037352155328,
+    0.061040463643017503,
+    0.07336444542156956,
+    0.1584573596265185,
+    0.15586617569531658,
+    0.04082205376131109,
+    0.15490574330179493,
+    0.144875453969869,
+    0.14617793105904953
+   ],
+   "consistency": 0.3394638275806279,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D2, D3 and D5 (D2=10, D3=00, D5=00), which together carry 47% of the total.",
+    "In the training split, CAN ID 202 is used only by BENIGN (12 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D1 and D2).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.34)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 214 D0 00 D1 00 D2 00 D3 00 D4 00 D5 00 D6 F4 D7 B0",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.17106787044121574,
+    0.12029727091009179,
+    0.12084361321007933,
+    0.1254199466585648,
+    0.11853177906211572,
+    0.1196707194401036,
+    0.11806223965305561,
+    0.04284601573951555,
+    0.0632605448852579
+   ],
+   "consistency": 0.7245688373094719,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on the CAN ID, D2 and D1 (ID 214, D2=00, D1=00), which together carry 42% of the total.",
+    "In the training split, CAN ID 214 is used only by BENIGN (13 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D6 and D7).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.72)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 4B0 D0 FF D1 00 D2 80 D3 00 D4 90 D5 00 D6 18 D7 F3",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.0573688982256515,
+    0.21795275890876706,
+    0.1298983228175378,
+    0.060763932405245795,
+    0.12805230391163244,
+    0.11106563924534946,
+    0.12700219965369253,
+    0.0821115730710843,
+    0.08578437176103912
+   ],
+   "consistency": 0.0,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D0, D1 and D3 (D0=FF, D1=00, D3=00), which together carry 48% of the total.",
+    "In the training split, CAN ID 4B0 is used only by BENIGN (21 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D4 and D7).",
+    "Occlusion and Integrated Gradients partly agree on the field ranking (Spearman \u03c1 = 0.00)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 4B0 D0 FF D1 00 D2 80 D3 00 D4 50 D5 00 D6 28 D7 F5",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.04107257120896875,
+    0.3364695911196862,
+    0.1346029128236022,
+    0.04189936716235997,
+    0.13294047911768703,
+    0.08127376968928599,
+    0.13207258517203058,
+    0.05803166172137183,
+    0.041637061985007405
+   ],
+   "consistency": 0.894427190999916,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D0, D1 and D3 (D0=FF, D1=00, D3=00), which together carry 60% of the total.",
+    "In the training split, CAN ID 4B0 is used only by BENIGN (21 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D4 and D7).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.89)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 202 D0 1C D1 F7 D2 30 D3 00 D4 40 D5 00 D6 00 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.0619790631919903,
+    0.061802771527509875,
+    0.13177004018549385,
+    0.06675222447062062,
+    0.16676797324754444,
+    0.029558992574871754,
+    0.1658390045621238,
+    0.15736508151525247,
+    0.1581648487245929
+   ],
+   "consistency": 0.6324555320336758,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D3, D5 and D7 (D3=00, D5=00, D7=00), which together carry 49% of the total.",
+    "In the training split, CAN ID 202 is used only by BENIGN (12 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D1 and D2).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.63)."
+   ]
+  },
+  {
+   "utr": "CAN_ID 416 D0 4B D1 60 D2 F3 D3 08 D4 01 D5 0A D6 80 D7 00",
+   "true": "BENIGN",
+   "pred": "BENIGN",
+   "combined": [
+    0.09416558368203207,
+    0.00011879155578124417,
+    0.012230164723054215,
+    0.029140879785192177,
+    0.09375958831897076,
+    0.0022315017222346426,
+    0.04733319465335642,
+    0.003136200184965386,
+    0.7178840953744131
+   ],
+   "consistency": 0.6469549633766489,
+   "driver": "either",
+   "rationale": [
+    "ERIS classified this frame as Benign with 100.0% confidence.",
+    "At field level, attribution concentrates on D7 (D7=00), which carries 72% of the total.",
+    "In the training split, CAN ID 416 is used only by BENIGN (8 patterns).",
+    "The nearest known frame is a BENIGN frame differing in 2 of 9 fields (D0 and D2).",
+    "Occlusion and Integrated Gradients agree on the field ranking (Spearman \u03c1 = 0.65)."
+   ]
+  }
+ ],
+ "mean_consistency": 0.519181202223871,
+ "mean_consistency_attacks": 0.5128480419477783,
+ "drivers": {
+  "payload": 3,
+  "both": 1,
+  "either": 2,
+  "identifier": 2
+ }
+}

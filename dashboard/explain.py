@@ -1,7 +1,7 @@
 """
 ERIS explainability: why did the classifier label this frame the way it did?
 
-Five complementary views, computed per frame and combined into one rationale:
+Six complementary views, computed per frame and combined into one rationale:
   1. Occlusion       - mask each field (CAN_ID, D0..D7) with <unk>, measure the drop
                        in the predicted class log-probability.
   2. Integrated      - path integral of gradients from a fully masked frame to the
@@ -11,6 +11,8 @@ Five complementary views, computed per frame and combined into one rationale:
   4. Counterfactual  - smallest change, towards known benign traffic on the same CAN ID,
                        that makes ERIS call the frame BENIGN.
   5. Prototype       - nearest frame in the training reference set and its class.
+  6. Group ablation  - hide the whole identifier, then the whole payload, to see which
+                       part decides on its own (robust where single bytes are redundant).
 """
 import json, os
 from collections import defaultdict
@@ -160,6 +162,23 @@ def counterfactual(eng, ref, utr, label, order):
             "reference": utr_from_values(list(target))}
 
 
+def group_ablation(eng, utr, label):
+    """Hide the whole identifier, then the whole payload: which part decides on its own?"""
+    vals = field_values(utr)
+    texts = [utr_from_values([eng.unk] + vals[1:]), utr_from_values([vals[0]] + [eng.unk] * 8)]
+    p = eng.probs(texts)
+    out = {}
+    for name, row in zip(("id_hidden", "payload_hidden"), p):
+        k = int(row.argmax())
+        out[name] = {"label": CLASSES[k], "confidence": float(row[k]),
+                     "p_target": float(row[CLASSES.index(label)])}
+    by_payload = out["id_hidden"]["label"] == label
+    by_id = out["payload_hidden"]["label"] == label
+    out["driver"] = {(True, False): "payload", (False, True): "identifier",
+                     (True, True): "either", (False, False): "both"}[(by_payload, by_id)]
+    return out
+
+
 def prototype(ref, utr):
     vals = field_values(utr)
     (i, d), = ref.nearest(vals, k=1, exclude=utr)
@@ -185,7 +204,7 @@ def _join(xs):
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
-def rationale(utr, label, conf, comb, cf, proto, ref, consistency):
+def rationale(utr, label, conf, comb, cf, proto, ref, consistency, grp=None):
     vals = field_values(utr)
     order = np.argsort(comb)[::-1]
     top, cum = [], 0.0
@@ -193,19 +212,27 @@ def rationale(utr, label, conf, comb, cf, proto, ref, consistency):
         top.append(int(k)); cum += comb[k]
         if cum >= 0.6 or len(top) == 3:
             break
-    id_share = comb[0]
     s = []
     s.append(f"ERIS classified this frame as {PRETTY[label]} with {conf:.1%} confidence.")
     names = [FIELDS[k] if k else "the CAN ID" for k in top]
     shown = [f"{FIELDS[k]}={vals[k]}" if k else f"ID {vals[0]}" for k in top]
-    s.append(f"The decision rests mainly on {_join(names)} ({', '.join(shown)}), "
-             f"which {'together carry' if len(top) > 1 else 'carries'} {cum:.0%} of the attribution.")
-    if label != "BENIGN":
-        if id_share >= 0.4:
-            s.append(f"The identifier is the strongest single signal ({id_share:.0%}).")
-        elif id_share < 0.15:
-            s.append(f"The CAN ID contributes only {id_share:.0%}: the model is reading the payload, "
-                     f"not the identifier.")
+    s.append(f"At field level, attribution concentrates on {_join(names)} ({', '.join(shown)}), "
+             f"which {'together carry' if len(top) > 1 else 'carries'} {cum:.0%} of the total.")
+    if label != "BENIGN" and grp:
+        ih, ph = grp["id_hidden"], grp["payload_hidden"]
+        s.append({
+            "payload": f"Hiding the CAN ID leaves the decision unchanged ({ih['label']} {ih['confidence']:.0%}), "
+                       f"but hiding the payload turns it into {ph['label']} ({ph['confidence']:.0%}): "
+                       f"the payload drives this decision" + (
+                           " - its bytes act together, so no single byte is decisive." if top[0] == 0 else "."),
+            "identifier": f"Hiding the payload leaves the decision unchanged ({ph['label']} {ph['confidence']:.0%}), "
+                          f"but hiding the CAN ID turns it into {ih['label']} ({ih['confidence']:.0%}): "
+                          f"the identifier drives this decision.",
+            "either": "The CAN ID alone and the payload alone each lead ERIS to the same decision: "
+                      "the evidence is redundant.",
+            "both": f"Neither part is enough on its own (ID hidden → {ih['label']}, payload hidden → "
+                    f"{ph['label']}): ERIS needs the identifier and payload together.",
+        }[grp["driver"]])
     seen = ref.id_classes.get(vals[0])
     if seen:
         parts = [f"{c} ({n} pattern{'s' if n > 1 else ''})"
@@ -242,6 +269,7 @@ def explain(eng, ref, utr, label=None):
     order = list(np.argsort(comb)[::-1])
     cf = counterfactual(eng, ref, utr, label, order)
     proto = prototype(ref, utr)
+    grp = group_ablation(eng, utr, label)
     cons = _spearman(occ, ig)
     return {
         "utr": utr, "label": label, "confidence": cls["probs"][label], "probs": cls["probs"],
@@ -251,8 +279,8 @@ def explain(eng, ref, utr, label=None):
         "attention": att, "attention_share": _shares(att), "attention_markers": att_rest,
         "combined": comb, "consistency": cons,
         "id_share": comb[0], "payload_share": 1 - comb[0],
-        "counterfactual": cf, "prototype": proto,
-        "rationale": rationale(utr, label, cls["probs"][label], comb, cf, proto, ref, cons),
+        "counterfactual": cf, "prototype": proto, "group": grp,
+        "rationale": rationale(utr, label, cls["probs"][label], comb, cf, proto, ref, cons, grp),
     }
 
 
@@ -264,10 +292,16 @@ def global_explanation(eng, ref, utrs, true_cls):
         e = explain(eng, ref, u)
         rows[e["label"]].append(e["combined"])
         per_frame.append({"utr": u, "true": t, "pred": e["label"], "combined": e["combined"],
-                          "consistency": e["consistency"]})
+                          "consistency": e["consistency"], "driver": e["group"]["driver"],
+                          "rationale": e["rationale"]})
     heat = {c: np.mean(rows[c], 0).tolist() for c in CLASSES if rows[c]}
     attacks = [f["consistency"] for f in per_frame if f["pred"] != "BENIGN"]
+    drivers = defaultdict(int)
+    for f in per_frame:
+        if f["pred"] != "BENIGN":
+            drivers[f["driver"]] += 1
     return {"fields": FIELDS, "classes": [c for c in CLASSES if c in heat], "heatmap": heat,
             "frames": per_frame,
             "mean_consistency": float(np.mean([f["consistency"] for f in per_frame])),
-            "mean_consistency_attacks": float(np.mean(attacks)) if attacks else None}
+            "mean_consistency_attacks": float(np.mean(attacks)) if attacks else None,
+            "drivers": dict(drivers)}

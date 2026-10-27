@@ -416,15 +416,26 @@ function explanationHTML(ex, pid = "d-probs") {
     ${rows.map(([n, v, d]) => `<tr><th class="rl" title="${esc(d)}">${n}</th>${v.map(x => `<td style="${heatBg(x)}">${(100 * x).toFixed(0)}</td>`).join("")}</tr>`).join("")}
     <tr><th class="rl dim">value</th>${ex.values.map(v => `<td class="dim">${esc(v)}</td>`).join("")}</tr></table></div>
     <div class="grid g3" style="margin-top:12px">
-      <div><div class="small muted">Payload vs identifier</div><div class="meter" style="margin-top:6px"><div style="width:${100 * ex.payload_share}%;background:var(--accent)"></div></div><div class="small" style="margin-top:4px">payload ${pct(ex.payload_share, 0)} · ID ${pct(ex.id_share, 0)}</div></div>
+      <div><div class="small muted">Attribution share: payload vs ID</div><div class="meter" style="margin-top:6px"><div style="width:${100 * ex.payload_share}%;background:var(--accent)"></div></div><div class="small" style="margin-top:4px">payload ${pct(ex.payload_share, 0)} · ID ${pct(ex.id_share, 0)}</div></div>
       <div><div class="small muted">Method agreement (Spearman ρ)</div><div class="meter" style="margin-top:6px"><div style="width:${Math.max(0, 100 * ex.consistency)}%;background:${ex.consistency >= .6 ? "var(--ok)" : "var(--warn)"}"></div></div><div class="small" style="margin-top:4px">${fix(ex.consistency, 2)} ${ex.consistency >= .6 ? "· consistent" : "· partial"}</div></div>
       <div><div class="small muted">IG completeness check</div><div class="small" style="margin-top:6px">Σ attributions ${fix(ex.ig_check.sum_attr, 3)} vs Δlog p ${fix(ex.ig_check.target_delta, 3)}<br><span class="dim">error ${fix(ex.ig_check.completeness_error, 3)}</span></div></div>
     </div></div>
+  ${groupHTML(ex)}
   <div class="grid g2" style="gap:14px">
     <div class="card"><h3>Counterfactual: what would make it benign?</h3>${cfHTML}</div>
     <div class="card"><h3>Class probabilities</h3><div class="chart-box short"><canvas id="${pid}"></canvas></div>
       <div class="small muted" style="margin-top:8px">Nearest known frame (${esc(pr.source)}): ${clsBadge(pr.class)} · ${pr.distance}/9 fields differ${pr.diff_fields.length && pr.distance <= 3 ? ` (${pr.diff_fields.join(", ")})` : ""}<div class="mono" style="margin-top:4px">${esc(pr.frame)}</div></div></div>
   </div>`;
+}
+const DRIVER = { payload: "Payload decides", identifier: "Identifier decides", either: "Either alone suffices", both: "Needs both together" };
+function groupHTML(ex) {
+  const g = ex.group;
+  if (!g || ex.label === "BENIGN") return "";
+  const row = (name, r) => `<div class="stat-line"><span class="muted">${name}</span><span>${clsBadge(r.label)} ${pct(r.confidence, 1)}
+    ${r.label === ex.label ? `<span class="test-pass">· unchanged</span>` : `<span class="test-fail">· changes</span>`}</span></div>`;
+  return `<div class="card"><h3>Identifier vs payload: which part decides? <span class="grow"></span><span class="tag" style="color:var(--accent2);background:rgba(79,140,255,.14)">${DRIVER[g.driver]}</span></h3>
+    <div class="desc">The whole CAN ID, then the whole payload, is hidden and the frame re-classified. Robust where single bytes are redundant.</div>
+    ${row("CAN ID hidden (payload only)", g.id_hidden)}${row("Payload hidden (CAN ID only)", g.payload_hidden)}</div>`;
 }
 function drawProbChart(id, probs) {
   chart(id, { type: "bar", data: { labels: CLASSES, datasets: [{ data: CLASSES.map(c => probs[c]), backgroundColor: CLASSES.map(clsColor) }] },
@@ -545,13 +556,14 @@ async function analyse(body, expected) {
 async function explain() {
   $("#view").innerHTML = `
   <div class="card mb"><h3>How ERIS explains a decision</h3>
-    <div class="desc">Every alert carries an explanation built from five complementary views, combined into a plain-language rationale for the analyst.</div>
+    <div class="desc">Every alert carries an explanation built from six complementary views, combined into a plain-language rationale for the analyst.</div>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">
       <div class="method"><b><span class="num">1</span>Occlusion</b><span class="small muted">Each field (CAN ID, D0–D7) is masked in turn; the drop in the predicted class probability measures how much the decision depends on it.</span></div>
       <div class="method"><b><span class="num">2</span>Integrated Gradients</b><span class="small muted">Gradients integrated along a path from a fully masked frame to the real one on the T5 input embeddings. Attributions sum to the change in log-probability (completeness).</span></div>
       <div class="method"><b><span class="num">3</span>Cross-attention</b><span class="small muted">Where the T5 decoder looks in the encoded frame while it generates the class label.</span></div>
       <div class="method"><b><span class="num">4</span>Counterfactual</b><span class="small muted">The smallest change, drawn from real benign traffic on the same CAN ID, that makes ERIS call the frame benign.</span></div>
       <div class="method"><b><span class="num">5</span>Prototype</b><span class="small muted">The nearest known frame and its class: an example-based justification analysts can verify.</span></div>
+      <div class="method"><b><span class="num">6</span>Identifier vs payload</b><span class="small muted">The whole CAN ID, then the whole payload, is hidden to test which part decides on its own.</span></div>
     </div></div>
   <div id="ex-body"><div class="card loading"><span class="spin"></span> Computing explanations for all held-out test frames…</div></div>`;
   let g;
@@ -569,7 +581,7 @@ async function explain() {
   <div class="kpis">
     <div class="kpi accent"><div class="l">Frames explained</div><div class="v">${g.frames.length}</div><div class="s">unique held-out test patterns</div></div>
     <div class="kpi"><div class="l">Method agreement · attacks</div><div class="v">${fix(g.mean_consistency_attacks ?? g.mean_consistency, 2)}</div><div class="s">mean Spearman ρ, occlusion vs IG (all frames ${fix(g.mean_consistency, 2)})</div></div>
-    <div class="kpi"><div class="l">Attack decisions driven by payload</div><div class="v">${pct(avg(g.classes.filter(c => c !== "BENIGN").map(c => 1 - g.heatmap[c][0])), 0)}</div><div class="s">mean share of D0–D7</div></div>
+    <div class="kpi"><div class="l">What decides attack frames</div><div class="v" style="font-size:18px;line-height:1.5">${Object.entries(g.drivers || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v} × ${DRIVER[k].toLowerCase()}`).join("<br>")}</div><div class="s">identifier-vs-payload ablation</div></div>
     <div class="kpi ${wrong.length ? "bad" : "ok"}"><div class="l">Misclassified frames</div><div class="v">${wrong.length}</div><div class="s">explained below</div></div>
   </div>
   <div class="grid g21 mb">
@@ -579,13 +591,13 @@ async function explain() {
     <div class="card"><h3>Identifier vs payload</h3><div class="chart-box"><canvas id="ex-idp"></canvas></div></div>
   </div>
   ${wrong.length ? `<div class="card mb callout"><h3>Explaining the errors</h3>${wrong.map(f => `<div class="mb"><div class="mono">${esc(f.utr)}</div>
-    <div class="small" style="margin:4px 0">true ${clsBadge(f.true)} → predicted ${clsBadge(f.pred)} · top fields: <b>${top(f.combined)}</b> · CAN ID share ${pct(f.combined[0], 0)}</div>
-    <a class="btn sm" href="#/inspector?utr=${encodeURIComponent(f.utr)}">Open full explanation ›</a></div>`).join("")}
-    <div class="small muted">The payload of this frame is byte-for-byte identical to a SPEED frame while its identifier belongs to GAS. The attribution shows the decision follows the payload, matching the error analysis in Section 7.4.</div></div>` : ""}
+    <div class="small" style="margin:4px 0">true ${clsBadge(f.true)} → predicted ${clsBadge(f.pred)} · ${DRIVER[f.driver] || ""}</div>
+    <ul class="rationale small">${(f.rationale || []).slice(1).map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+    <a class="btn sm" href="#/inspector?utr=${encodeURIComponent(f.utr)}">Open full explanation ›</a></div>`).join("")}</div>` : ""}
   <div class="card"><h3>Per-frame explanations <span class="grow"></span><span class="small dim">click a row to inspect</span></h3>
-    <div class="scroll"><table class="tbl"><thead><tr><th>Frame (UTR)</th><th>True</th><th>Predicted</th><th>Top fields</th><th class="num">ID share</th><th class="num">ρ</th></tr></thead>
+    <div class="scroll"><table class="tbl"><thead><tr><th>Frame (UTR)</th><th>True</th><th>Predicted</th><th>Top fields</th><th class="num">ID share</th><th>Decided by</th><th class="num">ρ</th></tr></thead>
     <tbody>${g.frames.map(f => `<tr class="click ${f.true !== f.pred ? "bad" : ""}" data-u="${esc(f.utr)}"><td class="mono small">${esc(f.utr)}</td><td>${clsBadge(f.true)}</td><td>${clsBadge(f.pred)}</td>
-      <td class="mono small">${top(f.combined)}</td><td class="num">${pct(f.combined[0], 0)}</td><td class="num">${fix(f.consistency, 2)}</td></tr>`).join("")}</tbody></table></div></div>`;
+      <td class="mono small">${top(f.combined)}</td><td class="num">${pct(f.combined[0], 0)}</td><td class="small">${f.pred === "BENIGN" ? "–" : DRIVER[f.driver] || "–"}</td><td class="num">${fix(f.consistency, 2)}</td></tr>`).join("")}</tbody></table></div></div>`;
   $$("#ex-body tr.click").forEach(tr => tr.onclick = () => location.hash = "#/inspector?utr=" + encodeURIComponent(tr.dataset.u));
   chart("ex-idp", { type: "bar", data: { labels: g.classes, datasets: [
       { label: "CAN ID", data: g.classes.map(c => g.heatmap[c][0]), backgroundColor: "#4f8cff" },
@@ -634,7 +646,7 @@ async function stats() {
       <tr><td><b>Total</b></td><td class="num"><b>${s.pattern_total}</b></td><td></td><td class="num"><b>${s.pattern_correct} / ${s.pattern_total}</b></td></tr></table></div>
     <div class="card callout"><h3>Error analysis <span class="grow"></span><span class="small dim">Section 7.4</span></h3>
       ${m.patterns.filter(p => !p.correct).map(p => `<div class="mono mb">${esc(p.utr)}</div><div class="mb">True ${clsBadge(p.true)} predicted ${clsBadge(p.pred)} on <b>${p.rows}</b> test rows.</div>`).join("") || "<div>No misclassified frames.</div>"}
-      <div class="small">Its eight payload bytes <span class="mono">06 1C 06 3F 06 2A 02 29</span> are identical to the SPEED frame on CAN ID 158, and its CAN ID 201 is the GAS identifier. A frame with an RPM label, a SPEED payload and a GAS identifier points to a labelling artefact in the dataset. The model followed the payload.</div>
+      <div class="small">Its eight payload bytes <span class="mono">06 1C 06 3F 06 2A 02 29</span> are identical to the SPEED frame on CAN ID 158, and its CAN ID 201 is the GAS identifier. A frame with an RPM label, a SPEED payload and a GAS identifier points to a labelling artefact in the dataset. The explanation confirms the decision is driven by the payload.</div>
       <div class="btns" style="margin-top:10px"><a class="btn sm" href="#/inspector?utr=${encodeURIComponent("CAN_ID 201 D0 06 D1 1C D2 06 D3 3F D4 06 D5 2A D6 02 D7 29")}">Explain this frame ›</a></div></div>
   </div>
   <div class="grid g3 mb">
@@ -699,7 +711,7 @@ async function system() {
     <div class="arch">
       <div class="stage"><h4>CICIoV2024 CAN traffic</h4><ul><li>6 hexadecimal CSV files</li><li>1.41 M rows, 3,588 unique frames</li><li>2019 Ford, DoS + 4 spoofing attacks</li></ul></div><div class="to">→</div>
       <div class="stage"><span class="ok">● ACTIVE</span><h4>Stage 1 · Classification</h4><ul><li>Hex normalisation, drop DLC / Interface</li><li>Frame → text (UTR)</li><li>Pattern-level split · hex tokenizer</li><li>T5 encoder-decoder generates the label</li></ul></div><div class="to">→</div>
-      <div class="stage"><span class="ok">● ACTIVE</span><h4>Stage 2 · Explainability</h4><ul><li>Occlusion &amp; Integrated Gradients</li><li>Cross-attention</li><li>Counterfactual &amp; prototype</li><li>Plain-language rationale</li></ul></div><div class="to">→</div>
+      <div class="stage"><span class="ok">● ACTIVE</span><h4>Stage 2 · Explainability</h4><ul><li>Occlusion &amp; Integrated Gradients</li><li>Cross-attention · ID-vs-payload ablation</li><li>Counterfactual &amp; prototype</li><li>Plain-language rationale</li></ul></div><div class="to">→</div>
       <div class="stage"><span class="ok" style="color:var(--warn)">● PREVIEW</span><h4>Stage 3 · Risk assessment</h4><ul><li>Affected vehicle function</li><li>Impact × feasibility (ISO/SAE 21434)</li><li>Confidence &amp; burst escalation</li></ul></div><div class="to">→</div>
       <div class="stage"><span class="ok">● ACTIVE</span><h4>Analyst console</h4><ul><li>Live alerts &amp; incidents</li><li>Triage workflow &amp; audit trail</li><li>Label + explanation + severity</li></ul></div>
     </div></div>
