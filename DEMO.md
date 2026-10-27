@@ -7,7 +7,7 @@
    .venv/bin/python scripts/check_data.py data
    ```
    Every line should say `OK`, and the row counts should match Table 5.1. If a file name differs (Kaggle mirrors sometimes rename files), rename it to the name the script prints.
-2. **Train** (≈20–30 min on the M2). This runs the exact Ch. 6.1 command, then precomputes the explanations:
+2. **Train** (≈12 min on the M2; **already done on 27 Oct**, and the results reproduced the report exactly). This runs the exact Ch. 6.1 command, then precomputes the explanations:
    ```bash
    ./train_live.sh
    ```
@@ -33,8 +33,8 @@ Everything is local: no internet is needed, and Chart.js is vendored.
 | 4 | Alert drawer | Click **Acknowledge**, type an assignee, then **Assign**. Add a note. | The audit trail records who did what and when. MTTA updates on the Live Monitor. |
 | 5 | **Incidents** | Open the incident and click **Resolve**. Then click **Export CSV**. | Repeated frames are grouped into one incident, so the analyst isn't flooded. The export produces an incident report. |
 | 6 | **Frame Inspector** | Click **Analyse** on the default raw values `000001DC`, `2.0`, `3`. | This shows the formatting-leak fix live: the green values were normalised, and the frame is shown as a UTR and as tokens. |
-| 7 | Frame Inspector | Click the **RPM (error case)** preset. | This is the single error from Section 7.4. The explanation shows the decision follows the payload, which is identical to SPEED, rather than the ID. |
-| 8 | **Explainability** | Show the global heatmap and the Identifier vs payload chart. | This is the per-class view of what the model relies on, over all 33 held-out frames. |
+| 7 | Frame Inspector | Click the **RPM (error case)** preset. | This is the single error from Section 7.4. Point to the "Identifier vs payload" card: with the CAN ID hidden ERIS still says SPEED, but with the payload hidden it says RPM. So the SPEED-identical payload causes the error, which confirms Section 7.4 with evidence. CAN ID 201 is shared by RPM, GAS and SPEED in training, so the ID alone is ambiguous. |
+| 8 | **Explainability** | Show the "What decides attack frames" tile and the global heatmap. | Across the 8 held-out attack frames, the payload decides 3, the identifier decides 2, either one alone suffices for 2, and 1 needs both. The model relies heavily on CAN IDs, the exact shortcut risk raised in Limitations (Section 7.6). Explainability is how ERIS makes this visible to the analyst. |
 | 9 | **Model Stats** | Scroll down the page. | These are all the numbers from Chapter 7, so nobody has to read terminal output: 91.72% row accuracy, macro F1 0.9118, 32/33 patterns, and the reload check. Toggle **Live re-run** to show the run reproduced on this laptop. |
 | 10 | **System & Tests** | Click **▶ Run checks**. | Table 5.5 executed live against the running system. |
 
